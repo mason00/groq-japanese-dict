@@ -5,6 +5,8 @@ env/
 
 # Python bytecode and caches
 __pycache__/
+src/client/__pycache__/
+src/server/__pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
