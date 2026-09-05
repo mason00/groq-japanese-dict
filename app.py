@@ -10,14 +10,12 @@ import uvicorn
 
 try:
 	import spaces  # type: ignore[import-not-found]
+
+	@spaces.GPU(duration=1)
+	def _zerogpu_probe():
+		return "probe ok"
 except ImportError:
-	class _LocalSpaces:
-		@staticmethod
-		def GPU(function):
-			return function
-
-	spaces = _LocalSpaces()
-
+	pass
 
 def _package_version(package_name: str) -> str:
 	try:
@@ -54,16 +52,10 @@ print(
 
 from src.client.app import create_demo
 from src.server.api import app as api_app
-from src.server.service import translate_text
 
 
 print("[startup] project modules imported", flush=True)
-@spaces.GPU
-def _translate_on_space(text: str) -> tuple[str, str, str, str]:
-	return translate_text(text)
-
-
-demo = create_demo(_translate_on_space)
+demo = create_demo()
 app: FastAPI = gr.mount_gradio_app(api_app, demo, path="/")
 print("[startup] Gradio mounted at /; FastAPI routes are ready", flush=True)
 

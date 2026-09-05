@@ -6,18 +6,6 @@ import gradio as gr
 
 from ..server.service import translate_text
 
-try:
-    import spaces  # type: ignore[import-not-found]
-except ImportError:
-    class _LocalSpaces:
-        @staticmethod
-        def GPU(function):
-            return function
-
-    spaces = _LocalSpaces()
-
-
-@spaces.GPU
 def _translate(text: str) -> tuple[str, str, str, str]:
     return translate_text(text)
 
