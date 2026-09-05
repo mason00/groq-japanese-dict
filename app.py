@@ -8,7 +8,8 @@ import gradio as gr
 import spaces
 
 
-@spaces.GPU(duration=1)
+# 仅用于通过 ZeroGPU 启动校验，空函数，毫秒级执行，不会超时。
+@spaces.GPU(duration=10)
 def _zerogpu_probe():
 	return "probe ok"
 
@@ -52,7 +53,6 @@ from src.server.service import translate_text
 print("[startup] project modules imported", flush=True)
 
 
-@spaces.GPU(duration=1)
 def gradio_translate(text: str) -> tuple[str, str, str, str]:
 	return translate_text(text)
 
@@ -61,8 +61,14 @@ demo = create_demo(gradio_translate)
 print("[startup] Gradio demo is ready", flush=True)
 
 if __name__ == "__main__":
-	 demo.launch(
-		server_name="0.0.0.0",
+	server_name = "0.0.0.0" if os.getenv("SPACE_ID") else "127.0.0.1"
+	print(
+		f"[startup] launching Gradio on {server_name}:{os.getenv('PORT', '7860')}",
+		flush=True,
+	)
+	demo.launch(
+		server_name=server_name,
 		server_port=int(os.getenv("PORT", "7860")),
+		debug=True,
 		show_error=True,
 	)

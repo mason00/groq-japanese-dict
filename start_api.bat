@@ -17,10 +17,10 @@ if not defined LANGSMITH_API_KEY (
 set "LANGCHAIN_TRACING_V2=%LANGSMITH_TRACING%"
 set "LANGCHAIN_PROJECT=%LANGSMITH_PROJECT%"
 
-if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" app.py
+if exist ".venv\Scripts\gradio.exe" (
+    ".venv\Scripts\gradio.exe" app.py --watch-dirs src
 ) else (
-    python app.py
+    gradio app.py --watch-dirs src
 )
 
 endlocal
