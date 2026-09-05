@@ -8,7 +8,7 @@ from src.client.app import demo
 from src.server.api import app as api_app
 
 
-app: FastAPI = gr.mount_gradio_app(api_app, demo, path="/ui")
+app: FastAPI = gr.mount_gradio_app(api_app, demo, path="/")
 
 # local debug only
 # if __name__ == "__main__":
