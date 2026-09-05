@@ -1,6 +1,5 @@
 ---
 title: Japanese Furigana Translator
-emoji: ":jp:"
 colorFrom: blue
 colorTo: indigo
 sdk: gradio
