@@ -49,10 +49,18 @@ print(
 
 from src.client.app import create_demo
 from src.server.api import app as api_app
+from src.server.service import translate_text
 
 
 print("[startup] project modules imported", flush=True)
-demo = create_demo()
+
+
+@spaces.GPU(duration=1)
+def gradio_translate(text: str) -> tuple[str, str, str, str]:
+	return translate_text(text)
+
+
+demo = create_demo(gradio_translate)
 app: FastAPI = gr.mount_gradio_app(api_app, demo, path="/")
 print("[startup] Gradio mounted at /; FastAPI routes are ready", flush=True)
 

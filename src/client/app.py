@@ -4,14 +4,9 @@ from collections.abc import Callable
 
 import gradio as gr
 
-from ..server.service import translate_text
-
-def _translate(text: str) -> tuple[str, str, str, str]:
-    return translate_text(text)
-
 
 def create_demo(
-    translate_fn: Callable[[str], tuple[str, str, str, str]] = _translate,
+    translate_fn: Callable[[str], tuple[str, str, str, str]],
 ) -> gr.Interface:
     return gr.Interface(
         fn=translate_fn,
@@ -24,6 +19,3 @@ def create_demo(
         ],
         title="日文振假名翻译工具",
     )
-
-
-demo = create_demo()
