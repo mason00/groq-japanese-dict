@@ -18,9 +18,9 @@ set "LANGCHAIN_TRACING_V2=%LANGSMITH_TRACING%"
 set "LANGCHAIN_PROJECT=%LANGSMITH_PROJECT%"
 
 if exist ".venv\Scripts\uvicorn.exe" (
-    ".venv\Scripts\uvicorn.exe" src.server.api:app --host 127.0.0.1 --port 8000 --reload --reload-dir src
+    ".venv\Scripts\uvicorn.exe" app:app --host 127.0.0.1 --port 7860 --reload --reload-dir src --reload-dir .
 ) else (
-    uvicorn src.server.api:app --host 127.0.0.1 --port 8000 --reload --reload-dir src
+    uvicorn app:app --host 127.0.0.1 --port 7860 --reload --reload-dir src --reload-dir .
 )
 
 endlocal

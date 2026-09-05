@@ -3,8 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-from .llm_client import create_llm_client
-from .pipeline import JapanesePipeline
+from .service import translate_text
 
 
 class TranslateRequest(BaseModel):
@@ -18,7 +17,6 @@ class TranslateResponse(BaseModel):
     difficult_words: str
 
 
-pipeline = JapanesePipeline(create_llm_client())
 app = FastAPI(
     title="日文振假名翻译 API",
     version="1.0.0",
@@ -33,7 +31,9 @@ def health() -> dict[str, str]:
 
 @app.post("/translate", response_model=TranslateResponse)
 def translate(request: TranslateRequest) -> TranslateResponse:
-    japanese_with_furigana, words, translation, difficult_words = pipeline.process(request.text)
+    japanese_with_furigana, words, translation, difficult_words = translate_text(
+        request.text
+    )
     return TranslateResponse(
         japanese_with_furigana=japanese_with_furigana,
         words=words,
