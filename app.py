@@ -46,7 +46,7 @@ print(
 	flush=True,
 )
 
-from src.client.app import create_demo
+from src.client.app import MOBILE_UI_CSS, create_demo
 from src.server.service import translate_text
 
 
@@ -71,4 +71,5 @@ if __name__ == "__main__":
 		server_port=int(os.getenv("PORT", "7860")),
 		debug=True,
 		show_error=True,
+		css=MOBILE_UI_CSS,
 	)
