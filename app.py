@@ -7,15 +7,12 @@ print("[startup] app.py import started", flush=True)
 from fastapi import FastAPI
 import gradio as gr
 import uvicorn
+import spaces
 
-try:
-	import spaces  # type: ignore[import-not-found]
 
-	@spaces.GPU(duration=1)
-	def _zerogpu_probe():
-		return "probe ok"
-except ImportError:
-	pass
+@spaces.GPU(duration=1)
+def _zerogpu_probe():
+	return "probe ok"
 
 def _package_version(package_name: str) -> str:
 	try:
