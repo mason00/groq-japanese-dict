@@ -4,9 +4,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 print("[startup] app.py import started", flush=True)
 
-from fastapi import FastAPI
 import gradio as gr
-import uvicorn
 import spaces
 
 
@@ -48,7 +46,6 @@ print(
 )
 
 from src.client.app import create_demo
-from src.server.api import app as api_app
 from src.server.service import translate_text
 
 
@@ -61,13 +58,11 @@ def gradio_translate(text: str) -> tuple[str, str, str, str]:
 
 
 demo = create_demo(gradio_translate)
-app: FastAPI = gr.mount_gradio_app(api_app, demo, path="/")
-print("[startup] Gradio mounted at /; FastAPI routes are ready", flush=True)
+print("[startup] Gradio demo is ready", flush=True)
 
-# local debug only
-# if __name__ == "__main__":
-# 	uvicorn.run(
-# 		app,
-# 		host="0.0.0.0",
-# 		port=int(os.getenv("PORT", "7860")),
-# 	)
+if __name__ == "__main__":
+	 demo.launch(
+		server_name="0.0.0.0",
+		server_port=int(os.getenv("PORT", "7860")),
+		show_error=True,
+	)

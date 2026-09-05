@@ -17,10 +17,10 @@ if not defined LANGSMITH_API_KEY (
 set "LANGCHAIN_TRACING_V2=%LANGSMITH_TRACING%"
 set "LANGCHAIN_PROJECT=%LANGSMITH_PROJECT%"
 
-if exist ".venv\Scripts\uvicorn.exe" (
-    ".venv\Scripts\uvicorn.exe" app:app --host 127.0.0.1 --port 7860 --reload --reload-dir src --reload-dir .
+if exist ".venv\Scripts\python.exe" (
+    ".venv\Scripts\python.exe" app.py
 ) else (
-    uvicorn app:app --host 127.0.0.1 --port 7860 --reload --reload-dir src --reload-dir .
+    python app.py
 )
 
 endlocal
