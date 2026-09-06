@@ -217,11 +217,10 @@ class JapanesePipeline:
         glosses = []
         for entry in result.entries:
             for sense in entry.senses:
-                for gloss in sense.gloss:
-                    if gloss.text not in glosses:
-                        glosses.append(gloss.text)
-                    if len(glosses) == 3:
-                        return glosses
+                if sense.gloss:
+                    glosses.append(sense.gloss[0].text)
+                if len(glosses) == 3:
+                    return glosses
         return glosses
 
     @staticmethod
