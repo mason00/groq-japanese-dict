@@ -14,6 +14,9 @@ from .prompt_manager import PromptManager
 from .word_difficulty import CandidateWord, WordDifficultyLexicon
 
 
+TARGET_PARTS_OF_SPEECH = frozenset({"名詞", "動詞", "形容詞", "形状詞"})
+
+
 def _to_hiragana(text: str) -> str:
     return "".join(
         chr(ord(char) - 0x60) if "ァ" <= char <= "ヺ" else char
@@ -130,25 +133,39 @@ class JapanesePipeline:
         )
 
     def _format_word_lookups(self, text: str) -> str:
-        formatted_words = []
+        formatted_target_words = []
+        formatted_other_tokens = []
         for token in self._tokenizer.tokenize(text):
+            part_of_speech = token.part_of_speech()[0]
             surface = token.surface()
             dictionary_form = token.dictionary_form()
+            reading = _to_hiragana(token.reading_form())
+
+            if part_of_speech not in TARGET_PARTS_OF_SPEECH:
+                glosses = self._lookup_glosses(dictionary_form)
+                definition = "; ".join(glosses) if glosses else part_of_speech
+                formatted_other_tokens.append(
+                    f"{surface}（{reading}，{dictionary_form}）: {definition}"
+                )
+                continue
+
             glosses = self._lookup_glosses(dictionary_form)
             if not glosses:
                 continue
             definition = "; ".join(glosses)
-            formatted_words.append(f"{surface}（{dictionary_form}）: {definition}")
+            formatted_target_words.append(
+                f"{surface}（{reading}，{dictionary_form}）: {definition}"
+            )
+        formatted_words = formatted_target_words + formatted_other_tokens
         return "\n\n".join(formatted_words) or "无"
 
     def _difficult_word_candidates(self, text: str) -> list[CandidateWord]:
         candidates = []
-        allowed_pos = {"名詞", "動詞", "形容詞", "形容動詞"}
         seen = set()
         for token in self._tokenizer.tokenize(text):
             part_of_speech = token.part_of_speech()[0]
             word = token.dictionary_form()
-            if part_of_speech not in allowed_pos or word in seen:
+            if part_of_speech not in TARGET_PARTS_OF_SPEECH or word in seen:
                 continue
             level = self._difficulty_lexicon.level_for(word)
             if not self._difficulty_lexicon.is_n4_or_harder(level):

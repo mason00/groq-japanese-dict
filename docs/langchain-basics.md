@@ -9,7 +9,7 @@
 ```text
 输入 text
   -> tokenize: Sudachi 分词
-  -> format_prompt: PromptTemplate 渲染版本化 prompt
+  -> format_prompt: PromptTemplate 渲染统一 prompt
   -> complete: 调用统一 LLMClient
   -> parse: Pydantic 校验 JSON
   -> Gradio 三项输出
@@ -31,16 +31,15 @@
 
 ```text
 LLM_PROVIDER=groq 或 ollama
-PROMPT_VERSION=v1、v2 或 ab
 ```
 
 修改 `src/pipeline.py` 中的 `_build_chain()`，即可练习替换、插入或并行 Runnable 步骤。
 
 ## LangSmith 追踪和评估
 
-在 `start_groq.bat` 中填入 `LANGSMITH_API_KEY` 后，脚本会自动开启 tracing。每次调用会记录 `llm_translation` 和 `evaluate_current_output` 节点，项目名由 `LANGSMITH_PROJECT` 指定。
+在 `start_api.local.bat` 中填入 `LANGSMITH_API_KEY` 后，脚本会自动开启 tracing。每次调用会记录 `llm_translation` 和 `evaluate_current_output` 节点，项目名由 `LANGSMITH_PROJECT` 指定。
 
-当前评估函数位于 `src/evaluation.py`：
+当前评估函数位于 `src/server/evaluation.py`：
 
 - `furigana_correctness`：检查汉字 ruby 结构、平假名读音和源文本汉字覆盖率。
 - `translation_accuracy`：有参考译文时计算文本相似度；没有参考译文时返回 `None`，避免伪造准确率。
