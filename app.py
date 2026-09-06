@@ -72,4 +72,5 @@ if __name__ == "__main__":
 		debug=True,
 		show_error=True,
 		css=MOBILE_UI_CSS,
+		ssr_mode=False,
 	)
