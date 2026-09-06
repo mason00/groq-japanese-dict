@@ -9,7 +9,6 @@
 - 只允许输出合法 JSON，禁止 Markdown、前后说明和额外字段。
 - 必须输出 translation、japanese_with_furigana、difficult_words 三个字段，不得输出额外字段。
 - japanese_with_furigana 使用汉字（平假名）格式，仅汉字加注，送假名留在 ruby 外。
-- difficult_words 必须是数组：**数组必须完整包含传入的全部候选难词，严禁筛选、删减、剔除任何候选词条；只能使用候选列表内的词条，禁止添加候选列表之外的新词，不要翻译助词、助动词或介词。**每项只包含 word、translation。
 - 不要生成 reading、part_of_speech 或 jlpt_level；这些信息由程序本地提供。
-- 输出 JSON 前校验：difficult_words 数组长度 = 传入候选难词列表长度。
-- 格式示例：{"translation":"学习日语","japanese_with_furigana":"日本語（にほんご）を勉強（べんきょう）します","difficult_words":[{"word":"日本語","translation":"日语"}]}。
+- difficult_words 只能翻译“待补充难词”列表中的词；列表为空时返回空数组，不要添加列表之外的词。
+- 格式示例：{"translation":"学习日语","japanese_with_furigana":"日本語（にほんご）を勉強（べんきょう）します","difficult_words":[]}。

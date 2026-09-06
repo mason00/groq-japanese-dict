@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from jamdict import Jamdict
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langsmith import traceable
@@ -28,7 +29,7 @@ class WordTranslation(BaseModel):
 class TranslationResponse(BaseModel):
     translation: str = Field(min_length=1)
     japanese_with_furigana: str = Field(min_length=1)
-    difficult_words: list[WordTranslation]
+    difficult_words: list[WordTranslation] = Field(default_factory=list)
 
     class Config:
         extra = "forbid"
@@ -48,6 +49,7 @@ class LLMOutputError(ValueError):
 class JapanesePipeline:
     def __init__(self, llm_client: LLMClient, prompt_manager: PromptManager | None = None) -> None:
         self._tokenizer = dictionary.Dictionary().create()
+        self._dictionary = Jamdict(reuse_ctx=False)
         self._llm_client = llm_client
         self._prompt_manager = prompt_manager or PromptManager()
         self._difficulty_lexicon = WordDifficultyLexicon()
@@ -58,15 +60,23 @@ class JapanesePipeline:
             output = self._chain.invoke({"text": text})
         except LLMOutputError as error:
             error_message = f"翻译格式错误：{error}"
-            return error_message, self._tokenize(text), error_message, error_message
+            return (
+                error_message,
+                self._format_word_lookups(text),
+                error_message,
+                self._format_llm_difficult_words(
+                    [], self._unresolved_difficult_words(text)
+                ),
+            )
         metrics = self._evaluate_output(text, output["result"])
         print(f"LangSmith evaluation: {metrics}", flush=True)
         return (
             output["result"].japanese_with_furigana,
-            output["words"],
+            self._format_word_lookups(text),
             output["result"].translation,
-            self._format_difficult_words(
-                output["result"].difficult_words, output["difficult_words"]
+            self._format_llm_difficult_words(
+                output["result"].difficult_words,
+                output["unresolved_words"],
             ),
         )
 
@@ -89,14 +99,14 @@ class JapanesePipeline:
                 words=RunnableLambda(lambda data: self._tokenize(data["text"])),
             )
             .assign(
-                difficult_words=RunnableLambda(
-                    lambda data: self._difficult_word_candidates(data["text"])
+                unresolved_words=RunnableLambda(
+                    lambda data: self._unresolved_difficult_words(data["text"])
                 ),
             )
             .assign(
                 system_prompt=RunnableLambda(
                     lambda data: self._format_prompt(
-                        data["text"], data["difficult_words"]
+                        data["text"], data["unresolved_words"]
                     )
                 ),
             )
@@ -118,6 +128,18 @@ class JapanesePipeline:
         return " / ".join(
             token.surface() for token in self._tokenizer.tokenize(text)
         )
+
+    def _format_word_lookups(self, text: str) -> str:
+        formatted_words = []
+        for token in self._tokenizer.tokenize(text):
+            surface = token.surface()
+            dictionary_form = token.dictionary_form()
+            glosses = self._lookup_glosses(dictionary_form)
+            if not glosses:
+                continue
+            definition = "; ".join(glosses)
+            formatted_words.append(f"{surface}（{dictionary_form}）: {definition}")
+        return "\n\n".join(formatted_words) or "无"
 
     def _difficult_word_candidates(self, text: str) -> list[CandidateWord]:
         candidates = []
@@ -142,17 +164,26 @@ class JapanesePipeline:
             )
         return candidates
 
-    def _format_prompt(self, text: str, difficult_words: list[CandidateWord]) -> str:
+    def _format_prompt(
+        self, text: str, unresolved_words: list[CandidateWord]
+    ) -> str:
         prompt = self._prompt_manager.get_system_prompt(text)
         # Prompt files contain JSON braces; escape them before PromptTemplate parses them.
         template = prompt.replace("{", "{{").replace("}", "}}")
-        candidate_json = [{"word": candidate.word} for candidate in difficult_words]
+        candidate_json = [{"word": candidate.word} for candidate in unresolved_words]
         return PromptTemplate.from_template(
-            f"{template}\n\n用户输入的日文：{{text}}\n候选难词：{{candidates}}"
+            f"{template}\n\n用户输入的日文：{{text}}\n待补充难词：{{candidates}}"
         ).format(text=text, candidates=candidate_json)
 
+    def _unresolved_difficult_words(self, text: str) -> list[CandidateWord]:
+        return [
+            candidate
+            for candidate in self._difficult_word_candidates(text)
+            if not self._lookup_glosses(candidate.word)
+        ]
+
     @staticmethod
-    def _format_difficult_words(
+    def _format_llm_difficult_words(
         words: list[WordTranslation], candidates: list[CandidateWord]
     ) -> str:
         if not words:
@@ -161,13 +192,37 @@ class JapanesePipeline:
         formatted_words = []
         for word in words:
             candidate = candidate_by_word.get(word.word)
-            reading = candidate.reading if candidate else ""
-            part_of_speech = candidate.part_of_speech if candidate else "unknown"
+            if candidate is None:
+                continue
             formatted_words.append(
-                f"{word.word}（{reading}）"
-                f"{part_of_speech}: {word.translation}"
+                f"{word.word}（{candidate.reading}）"
+                f"{candidate.part_of_speech}: {word.translation}"
+            )
+        return "\n".join(formatted_words) or "无"
+
+    def _format_local_difficult_words(self, candidates: list[CandidateWord]) -> str:
+        if not candidates:
+            return "无"
+        formatted_words = []
+        for candidate in candidates:
+            definition = "; ".join(self._lookup_glosses(candidate.word)) or "无词条"
+            formatted_words.append(
+                f"{candidate.word}（{candidate.reading}）"
+                f"{candidate.part_of_speech}: {definition}"
             )
         return "\n".join(formatted_words)
+
+    def _lookup_glosses(self, word: str) -> list[str]:
+        result = self._dictionary.lookup(word)
+        glosses = []
+        for entry in result.entries:
+            for sense in entry.senses:
+                for gloss in sense.gloss:
+                    if gloss.text not in glosses:
+                        glosses.append(gloss.text)
+                    if len(glosses) == 3:
+                        return glosses
+        return glosses
 
     @staticmethod
     def _parse_translation(content: str) -> TranslationResponse:

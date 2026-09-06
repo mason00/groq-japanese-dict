@@ -34,6 +34,13 @@ MOBILE_UI_CSS = """
     border: 0 !important;
     box-shadow: none !important;
 }
+
+#translation-output textarea {
+    line-height: 1.65 !important;
+    max-height: calc(100vh - 120px) !important;
+    overflow-y: auto !important;
+    resize: none !important;
+}
 """
 
 
@@ -147,15 +154,41 @@ async function(currentText) {
 """
 
 
+AUTO_RESIZE_OUTPUT_JS = """
+function() {
+    const resizeOutput = () => {
+        const output = document.querySelector("#translation-output textarea");
+        if (!output) {
+            return;
+        }
+
+        output.style.height = "auto";
+        const availableHeight = Math.max(
+            160,
+            window.innerHeight - output.getBoundingClientRect().top - 16
+        );
+        const nextHeight = Math.min(output.scrollHeight, availableHeight);
+        output.style.height = `${nextHeight}px`;
+        output.style.overflowY = output.scrollHeight > availableHeight ? "auto" : "hidden";
+    };
+
+    window.addEventListener("resize", resizeOutput);
+    window.setInterval(resizeOutput, 250);
+    resizeOutput();
+}
+"""
+
+
 def create_demo(
     translate_fn: Callable[[str], tuple[str, str, str, str]],
 ) -> gr.Blocks:
     def format_result(result: tuple[str, str, str, str]) -> str:
-        japanese_with_reading, _, translation, difficult_words = result
+        japanese_with_reading, word_lookups, translation, difficult_words = result
         return (
             f"{japanese_with_reading.strip()}\n\n"
             f"{translation.strip()}\n\n"
-            f"{difficult_words.strip()}"
+            f"【LLM 补充】\n{difficult_words.strip()}\n\n"
+            f"【本地词典】\n{word_lookups.strip()}"
         )
 
     def translate_and_format(text: str) -> str:
@@ -174,7 +207,7 @@ def create_demo(
         result_output = gr.Textbox(
             show_label=False,
             lines=8,
-            max_lines=16,
+            max_lines=100,
             interactive=False,
             elem_id="translation-output",
         )
@@ -185,4 +218,5 @@ def create_demo(
             js=SUBMIT_CLIPBOARD_JS,
         )
         demo.load(None, js=CLIPBOARD_POLL_JS)
+        demo.load(None, js=AUTO_RESIZE_OUTPUT_JS)
     return demo

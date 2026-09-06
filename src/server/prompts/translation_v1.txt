@@ -9,6 +9,5 @@
 - 只能输出一个合法 JSON 对象，不要 Markdown 代码块、解释或额外文字。
 - JSON 必须严格包含 translation、japanese_with_furigana、difficult_words 三个字段，不得包含额外字段。
 - japanese_with_furigana 必须是带振假名的日文，格式为汉字（平假名）；只给汉字加注，送假名保留在括号外。
-- difficult_words 必须是数组：**数组必须完整包含传入的全部候选难词，严禁筛选、删减、剔除任何候选词条；只能使用候选列表内的词条，禁止添加候选列表之外的新词，不要添加助词、助动词、介词。**每项只包含 word、translation。
-- 输出 JSON 前校验：difficult_words 数组长度 = 传入候选难词列表长度。
-- 格式示例：{"translation":"学习日语","japanese_with_furigana":"日本語（にほんご）を勉強（べんきょう）します","difficult_words":[{"word":"日本語","translation":"日语"}]}。
+- difficult_words 只能翻译“待补充难词”列表中的词；列表为空时返回空数组，不要添加列表之外的词。
+- 格式示例：{"translation":"学习日语","japanese_with_furigana":"日本語（にほんご）を勉強（べんきょう）します","difficult_words":[]}。
