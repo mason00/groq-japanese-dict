@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from .pipeline import LemmatizedWord
 from .service import translate_text
 
 
@@ -11,10 +12,10 @@ class TranslateRequest(BaseModel):
 
 
 class TranslateResponse(BaseModel):
-    japanese_with_furigana: str
-    words: str
     translation: str
-    difficult_words: str
+    japanese_with_furigana: str
+    structure_anchor: str
+    words_lemmatized: list[LemmatizedWord]
 
 
 app = FastAPI(
@@ -31,12 +32,10 @@ def health() -> dict[str, str]:
 
 @app.post("/translate", response_model=TranslateResponse)
 def translate(request: TranslateRequest) -> TranslateResponse:
-    japanese_with_furigana, words, translation, difficult_words = translate_text(
-        request.text
-    )
+    result = translate_text(request.text)
     return TranslateResponse(
-        japanese_with_furigana=japanese_with_furigana,
-        words=words,
-        translation=translation,
-        difficult_words=difficult_words,
+        translation=result.translation,
+        japanese_with_furigana=result.japanese_with_furigana,
+        structure_anchor=result.structure_anchor,
+        words_lemmatized=result.words_lemmatized,
     )

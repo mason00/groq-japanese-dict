@@ -6,11 +6,19 @@ import httpx
 from pydantic import BaseModel
 
 
+class LemmatizedWord(BaseModel):
+    surface: str
+    dictionary_form: str
+    reading: str
+    definition: str
+    grammar_note: str
+
+
 class TranslateResponse(BaseModel):
-    japanese_with_furigana: str
-    words: str
     translation: str
-    difficult_words: str
+    japanese_with_furigana: str
+    structure_anchor: str
+    words_lemmatized: list[LemmatizedWord]
 
 
 class TranslationApiClient:

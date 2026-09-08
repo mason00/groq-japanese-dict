@@ -53,7 +53,7 @@ from src.server.service import translate_text
 print("[startup] project modules imported", flush=True)
 
 
-def gradio_translate(text: str) -> tuple[str, str, str, str]:
+def gradio_translate(text: str):
 	return translate_text(text)
 
 

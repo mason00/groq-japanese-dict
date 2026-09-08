@@ -54,7 +54,9 @@ def evaluate_output(
     reference_translation: str | None = None,
 ) -> dict[str, Any]:
     return {
-        "furigana_correctness": furigana_correctness(source, japanese_with_furigana),
+        "furigana_correctness": furigana_correctness(
+            source, japanese_with_furigana
+        ),
         "translation_accuracy": translation_accuracy(translation, reference_translation),
         "hallucination_score": hallucination_check(
             source, japanese_with_furigana, translation

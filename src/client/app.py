@@ -180,15 +180,20 @@ function() {
 
 
 def create_demo(
-    translate_fn: Callable[[str], tuple[str, str, str, str]],
+    translate_fn: Callable[[str], object],
 ) -> gr.Blocks:
-    def format_result(result: tuple[str, str, str, str]) -> str:
-        japanese_with_reading, word_lookups, translation, difficult_words = result
+    def format_result(result: object) -> str:
+        words_lemmatized = getattr(result, "words_lemmatized", [])
+        formatted_words = "\n".join(
+            f"{word.surface}（{word.reading}） -> {word.dictionary_form}"
+            f"：{word.definition}；{word.grammar_note}"
+            for word in words_lemmatized
+        ) or "无"
         return (
-            f"{japanese_with_reading.strip()}\n\n"
-            f"{translation.strip()}\n\n"
-            f"【LLM 补充】\n{difficult_words.strip()}\n\n"
-            f"【本地词典】\n{word_lookups.strip()}"
+            f"{result.japanese_with_furigana.strip()}\n\n"
+            f"{result.translation.strip()}\n\n"
+            f"【语法骨架】\n{result.structure_anchor.strip()}\n\n"
+            f"【词汇拆解】\n{formatted_words}"
         )
 
     def translate_and_format(text: str) -> str:
