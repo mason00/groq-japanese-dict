@@ -6,21 +6,18 @@
 - 读音一律使用平假名，不能使用片假名、罗马字或声调符号。
 - 遇到熟字训、词组读音或活用时，按完整词的实际读音处理，不能机械逐字拆分（例如：大和（やまと））。
 
-分词与原型还原规范（words_lemmatized）：
-- 将句子拆解为独立的词汇单元（包括名词、动词、形容词、副词、助词、接续词等）。
-- 自动过滤所有标点符号（如：`、` `。` `（` `）` `：` `！` `？` 等），绝不要将标点符号作为独立词汇输出。
-- 保持词汇的语义完整性，不要过度拆分复合名词或固定词组（例如：应提取“日本語”，而非拆分为“日本”和“語”）。
-- 必须包含五个字段：
-  - surface: 句中出现的原始词形（如：くぐった、に）
-  - dictionary_form: 辞书形/原型；对于无变形的词（如名词、助词），填写其本身（如：くぐる、に）
-  - reading: 该词的原型平假名读音（如：くぐる、に）
-  - definition: 该词在句中所对应的简短中文释义（如：穿过，跨过；的）
-  - grammar_note: 简短说明词性或变形语法（如：名詞、格助詞、動詞-タ形）
+词汇释义与语法说明规范（word_explanations）：
+- 输入中附带了 [本地词汇与JMdict参考]，以数字编号列出了句中所有词汇的原型、读音、词性以及 JMdict 英文释义（JMdict英文参考）。
+- 你只需输出包含对应编号的 word_explanations 数组，无需重复输出词面、原型和读音！
+- 必须包含三个字段：
+  - id: 对应 [本地词汇与JMdict参考] 中的序号数字（如：1, 2, ...）
+  - definition: 该词在句中所对应的精准【简体中文释义】。注意：JMdict 英文释义仅供参考消歧，严禁直接输出英文；必须结合句子语境生成地道中文。
+  - grammar_note: 通俗说明该词在句中的词性、活用或语法作用（如：名詞、格助詞、動詞-タ形/表过去、連体形）。
 
 语法骨架与重难点提取规范（structure_anchor）：
 - 提取句子的核心主干（如：主语+谓语）以及句中的核心句型/语法点，用一句话简短概括，帮助快速理清长难句结构。
 
 输出协议：
 - 只允许输出合法 JSON，禁止 Markdown（如禁止 ```json 代码块）、前后说明和额外字段。
-- 必须包含 translation、japanese_with_furigana、structure_anchor、words_lemmatized 四个字段。
-- 格式示例：{"translation":"不愧是刚入学的新生，五年级学生一脸严肃地走进了校门。","japanese_with_furigana":"さすがに新入生（しんにゅうせい）の五年生（ごねんせい）はきまじめな顔（かお）をして校門（こうもん）をくぐった。","structure_anchor":"句型：～顔をする（表现出某种神情） + 核心谓语：くぐった（穿过）","words_lemmatized":[{"surface":"さすがに","dictionary_form":"さすがに","reading":"さすがに","definition":"不愧是，到底还是","grammar_note":"副詞"},{"surface":"新入生","dictionary_form":"新入生","reading":"しんにゅうせい","definition":"新生","grammar_note":"名詞"},{"surface":"の","dictionary_form":"の","reading":"の","definition":"的","grammar_note":"格助詞"},{"surface":"五年生","dictionary_form":"五年生","reading":"ごねんせい","definition":"五年级学生","grammar_note":"名詞"},{"surface":"は","dictionary_form":"は","reading":"は","definition":"提示主题（不译）","grammar_note":"係助詞"},{"surface":"きまじめな","dictionary_form":"きまじめだ","reading":"きまじめだ","definition":"一本正经的，非常严肃的","grammar_note":"形容動詞/連体形"},{"surface":"顔","dictionary_form":"顔","reading":"かお","definition":"脸，表情","grammar_note":"名詞"},{"surface":"をして","dictionary_form":"する","reading":"する","definition":"带有，呈现（某种神态）","grammar_note":"動詞/て形"},{"surface":"校門","dictionary_form":"校門","reading":"こうもん","definition":"校门","grammar_note":"名詞"},{"surface":"を","dictionary_form":"を","reading":"を","definition":"（穿过、离开的场所）","grammar_note":"格助詞"},{"surface":"くぐった","dictionary_form":"くぐる","reading":"くぐる","definition":"穿过，跨过","grammar_note":"動詞/タ形"}]}
+- 必须包含 translation、japanese_with_furigana、structure_anchor、word_explanations 四个字段。
+- 格式示例：{"translation":"不愧是刚入学的新生，五年级学生一脸严肃地走进了校门。","japanese_with_furigana":"さすがに新入生（しんにゅうせい）の五年生（ごねんせい）はきまじめな顔（かお）をして校門（こうもん）をくぐった。","structure_anchor":"句型：～顔をする（表现出某种神情） + 核心谓语：くぐった（穿过）","word_explanations":[{"id":1,"definition":"不愧是，到底还是","grammar_note":"副詞"},{"id":2,"definition":"新生","grammar_note":"名詞"},{"id":3,"definition":"的","grammar_note":"格助詞"},{"id":4,"definition":"五年级学生","grammar_note":"名詞"},{"id":5,"definition":"提示主题","grammar_note":"係助詞"},{"id":6,"definition":"一本正经的，严肃的","grammar_note":"形容動詞/連体形"},{"id":7,"definition":"神情，表情","grammar_note":"名詞"},{"id":8,"definition":"带有，呈现","grammar_note":"動詞/て形"},{"id":9,"definition":"校门","grammar_note":"名詞"},{"id":10,"definition":"（穿过的场所）","grammar_note":"格助詞"},{"id":11,"definition":"穿过，跨过","grammar_note":"動詞/タ形"}]}
