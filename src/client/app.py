@@ -5,6 +5,7 @@ from collections.abc import Callable
 import gradio as gr
 
 from src.server.anki_export import AnkiExportStore, AnkiWord
+from src.server.notion_client import NotionClient
 
 
 MOBILE_UI_CSS = """
@@ -209,8 +210,10 @@ function() {
 def create_demo(
     translate_fn: Callable[[str], object],
     anki_store: AnkiExportStore | None = None,
+    notion_client: NotionClient | None = None,
 ) -> gr.Blocks:
     export_store = anki_store or AnkiExportStore()
+    notion_store = notion_client or NotionClient()
 
     def format_result(result: object) -> str:
         return (
@@ -243,11 +246,53 @@ def create_demo(
         surface, dictionary_form, reading, definition, grammar_note = words[row_index]
         word = AnkiWord(surface, dictionary_form, reading, definition, grammar_note)
         safe_id = _resolve_client_id(client_id, request)
-        if export_store.add_word(safe_id, word):
-            count = export_store.get_pending_count(safe_id)
-            return f"已加入 Anki：**{dictionary_form}（{reading}）**（当前共 {count} 个待导出）"
+        anki_added = export_store.add_word(safe_id, word)
         count = export_store.get_pending_count(safe_id)
-        return f"已存在，未重复加入：**{dictionary_form}（{reading}）**（当前共 {count} 个待导出）"
+        anki_message = "已加入 Anki" if anki_added else "Anki 已存在，未重复加入"
+
+        try:
+            notion_result = notion_store.save_word(word)
+            notion_messages = {
+                "added": "Notion DB 添加成功",
+                "exists": "Notion DB 已存在，未重复添加",
+                "disabled": "Notion DB 未配置",
+            }
+            notion_message = notion_messages.get(notion_result.status, "Notion DB 未同步")
+        except Exception as error:
+            print(
+                f"[notion] save failed in click handler: {type(error).__name__}: {error}",
+                flush=True,
+            )
+            notion_message = "Notion DB 添加失败"
+
+        return (
+            f"{anki_message}；{notion_message}：**{dictionary_form}（{reading}）**"
+            f"（当前共 {count} 个待导出）"
+        )
+
+    def save_selected_word_to_notion(words: list[list[str]], event: gr.SelectData) -> str:
+        row_index, _ = event.index
+        if row_index >= len(words):
+            return "未找到所选词条。"
+        surface, dictionary_form, reading, definition, grammar_note = words[row_index]
+        word = AnkiWord(surface, dictionary_form, reading, definition, grammar_note)
+
+        try:
+            notion_result = notion_store.save_word(word)
+            notion_messages = {
+                "added": "Notion DB 添加成功",
+                "exists": "Notion DB 已存在，未重复添加",
+                "disabled": "Notion DB 未配置",
+            }
+            notion_message = notion_messages.get(notion_result.status, "Notion DB 未同步")
+        except Exception as error:
+            print(
+                f"[notion] save failed in click handler: {type(error).__name__}: {error}",
+                flush=True,
+            )
+            notion_message = "Notion DB 添加失败"
+
+        return f"{notion_message}：**{dictionary_form}（{reading}）**"
 
     def download_anki(client_id: str, request: gr.Request = None) -> tuple[object, str]:
         safe_id = _resolve_client_id(client_id, request)
@@ -267,10 +312,6 @@ def create_demo(
         return "当前待导出列表为空（点击上方表格中的生词即可加入）。"
 
     with gr.Blocks(title="日文振假名翻译工具") as demo:
-        # Hidden textbox holds the localStorage client_id read on page load.
-        # This persists across refreshes/reconnects for the same browser.
-        client_id_box = gr.Textbox(visible=False, elem_id="anki-client-id")
-
         text_input = gr.Textbox(
             show_label=False,
             placeholder="输入日文",
@@ -295,13 +336,7 @@ def create_demo(
             label="词汇拆解（点击任一词条加入 Anki）",
             elem_id="words-table",
         )
-        anki_status = gr.Markdown()
-        download_button = gr.Button("生成 Anki 下载文件", variant="primary")
-        download_file = gr.File(
-            label="Anki 导出文件",
-            file_types=[".tsv"],
-            visible=False,
-        )
+        notion_status = gr.Markdown()
 
         text_input.submit(
             translate_and_format,
@@ -310,12 +345,7 @@ def create_demo(
             js=SUBMIT_CLIPBOARD_JS,
         )
         word_rows.change(lambda words: words, word_rows, words_table)
-        words_table.select(add_selected_word, [word_rows, client_id_box], anki_status)
-        download_button.click(download_anki, inputs=client_id_box, outputs=[download_file, anki_status])
-
-        # On page load: read localStorage -> populate client_id_box -> show pending count
-        demo.load(None, js=CLIENT_ID_JS, outputs=client_id_box)
-        client_id_box.change(refresh_pending_status, inputs=client_id_box, outputs=anki_status)
+        words_table.select(save_selected_word_to_notion, word_rows, notion_status)
 
         demo.load(None, js=CLIPBOARD_POLL_JS)
         demo.load(None, js=AUTO_RESIZE_OUTPUT_JS)
