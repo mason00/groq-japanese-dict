@@ -21,6 +21,8 @@ htmlcov/
 # Local application state
 .gradio/
 *.log
+wheels/
+scratch/
 
 # Environment files and local secrets
 .env

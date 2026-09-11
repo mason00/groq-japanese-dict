@@ -4,6 +4,8 @@ from collections.abc import Callable
 
 import gradio as gr
 
+from src.server.anki_export import AnkiExportStore, AnkiWord
+
 
 MOBILE_UI_CSS = """
 .gradio-container {
@@ -40,6 +42,16 @@ MOBILE_UI_CSS = """
     max-height: calc(100vh - 120px) !important;
     overflow-y: auto !important;
     resize: none !important;
+}
+
+/* Row-level selection for the words table: suppress cell highlight, show full-row highlight */
+#words-table table td.selected {
+    background: transparent !important;
+    outline: none !important;
+}
+#words-table table tr.selected td,
+#words-table table tr:has(td.selected) td {
+    background: var(--color-accent-soft, rgba(99, 102, 241, 0.15)) !important;
 }
 """
 
@@ -179,27 +191,86 @@ function() {
 """
 
 
+# Reads (or creates) a persistent random client ID from browser localStorage.
+# This ID survives page refreshes, tab closes, and app restarts — uniquely
+# identifying each user's Anki word list on the server without requiring login.
+CLIENT_ID_JS = """
+function() {
+    let id = localStorage.getItem("anki_client_id");
+    if (!id || !id.trim()) {
+        id = "c_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36);
+        localStorage.setItem("anki_client_id", id);
+    }
+    return id;
+}
+"""
+
+
 def create_demo(
     translate_fn: Callable[[str], object],
+    anki_store: AnkiExportStore | None = None,
 ) -> gr.Blocks:
+    export_store = anki_store or AnkiExportStore()
+
     def format_result(result: object) -> str:
-        words_lemmatized = getattr(result, "words_lemmatized", [])
-        formatted_words = "\n".join(
-            f"{word.surface}（{word.reading}） -> {word.dictionary_form}"
-            f"：{word.definition}；{word.grammar_note}"
-            for word in words_lemmatized
-        ) or "无"
         return (
             f"{result.japanese_with_furigana.strip()}\n\n"
             f"{result.translation.strip()}\n\n"
-            f"【语法骨架】\n{result.structure_anchor.strip()}\n\n"
-            f"【词汇拆解】\n{formatted_words}"
+            f"【语法骨架】\n{result.structure_anchor.strip()}"
         )
 
-    def translate_and_format(text: str) -> str:
-        return format_result(translate_fn(text))
+    def translate_and_format(text: str) -> tuple[str, list[list[str]]]:
+        result = translate_fn(text)
+        words = [
+            [word.surface, word.dictionary_form, word.reading, word.definition, word.grammar_note]
+            for word in result.words_lemmatized
+        ]
+        return format_result(result), words
+
+    def _resolve_client_id(client_id: str, request: gr.Request | None) -> str:
+        """Prefer the localStorage client_id; fall back to session_hash if empty."""
+        safe_id = (client_id or "").strip()
+        if not safe_id and request:
+            safe_id = getattr(request, "session_hash", "") or ""
+        return safe_id or "default"
+
+    def add_selected_word(
+        words: list[list[str]], client_id: str, event: gr.SelectData, request: gr.Request = None
+    ) -> str:
+        row_index, _ = event.index
+        if row_index >= len(words):
+            return "未找到所选词条。"
+        surface, dictionary_form, reading, definition, grammar_note = words[row_index]
+        word = AnkiWord(surface, dictionary_form, reading, definition, grammar_note)
+        safe_id = _resolve_client_id(client_id, request)
+        if export_store.add_word(safe_id, word):
+            count = export_store.get_pending_count(safe_id)
+            return f"已加入 Anki：**{dictionary_form}（{reading}）**（当前共 {count} 个待导出）"
+        count = export_store.get_pending_count(safe_id)
+        return f"已存在，未重复加入：**{dictionary_form}（{reading}）**（当前共 {count} 个待导出）"
+
+    def download_anki(client_id: str, request: gr.Request = None) -> tuple[object, str]:
+        safe_id = _resolve_client_id(client_id, request)
+        export_path = export_store.export_and_clear(safe_id)
+        if export_path is None:
+            return gr.File(value=None, visible=False), "还没有加入任何单词。"
+        return (
+            gr.File(value=str(export_path), visible=True),
+            "Anki 文件已生成。点击下方文件名下载；待下载列表已清空（0 个待导出）。",
+        )
+
+    def refresh_pending_status(client_id: str, request: gr.Request = None) -> str:
+        safe_id = _resolve_client_id(client_id, request)
+        count = export_store.get_pending_count(safe_id)
+        if count > 0:
+            return f"当前暂存待导出词条：**{count}** 个（可继续点击表格中的生词添加，或点击按钮生成下载）"
+        return "当前待导出列表为空（点击上方表格中的生词即可加入）。"
 
     with gr.Blocks(title="日文振假名翻译工具") as demo:
+        # Hidden textbox holds the localStorage client_id read on page load.
+        # This persists across refreshes/reconnects for the same browser.
+        client_id_box = gr.Textbox(visible=False, elem_id="anki-client-id")
+
         text_input = gr.Textbox(
             show_label=False,
             placeholder="输入日文",
@@ -216,12 +287,36 @@ def create_demo(
             interactive=False,
             elem_id="translation-output",
         )
+        word_rows = gr.State([])
+        words_table = gr.Dataframe(
+            headers=["原文", "原形", "读音", "释义", "词性/语法"],
+            datatype=["str", "str", "str", "str", "str"],
+            interactive=False,
+            label="词汇拆解（点击任一词条加入 Anki）",
+            elem_id="words-table",
+        )
+        anki_status = gr.Markdown()
+        download_button = gr.Button("生成 Anki 下载文件", variant="primary")
+        download_file = gr.File(
+            label="Anki 导出文件",
+            file_types=[".tsv"],
+            visible=False,
+        )
+
         text_input.submit(
             translate_and_format,
             text_input,
-            result_output,
+            [result_output, word_rows],
             js=SUBMIT_CLIPBOARD_JS,
         )
+        word_rows.change(lambda words: words, word_rows, words_table)
+        words_table.select(add_selected_word, [word_rows, client_id_box], anki_status)
+        download_button.click(download_anki, inputs=client_id_box, outputs=[download_file, anki_status])
+
+        # On page load: read localStorage -> populate client_id_box -> show pending count
+        demo.load(None, js=CLIENT_ID_JS, outputs=client_id_box)
+        client_id_box.change(refresh_pending_status, inputs=client_id_box, outputs=anki_status)
+
         demo.load(None, js=CLIPBOARD_POLL_JS)
         demo.load(None, js=AUTO_RESIZE_OUTPUT_JS)
     return demo
