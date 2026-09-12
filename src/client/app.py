@@ -171,7 +171,7 @@ PASTE_AND_SUBMIT_JS = """
 async function(currentText) {
     let clipboardText = null;
 
-    // 1. 读取剪贴板内容
+    // 1. AndroidBridge 优先
     if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
         try {
             clipboardText = AndroidBridge.getClipboardText();
@@ -180,10 +180,15 @@ async function(currentText) {
         }
     } else if (navigator.clipboard && navigator.clipboard.readText) {
         try {
-            // 注意：此处必须由用户点击事件直接触发，否则会被浏览器拒绝 permission error
+            // 【iPad 关键修复 1】：在读取前强制让窗口获取 Focus
+            if (window.focus) window.focus();
+            
+            // 读取剪贴板
             clipboardText = await navigator.clipboard.readText();
         } catch (error) {
-            console.error("Browser clipboard read failed:", error);
+            console.error("iPad/Browser clipboard read failed:", error);
+            // 【iPad 关键修复 2】：如果被 Safari 拒绝，降级返回原内容，避免覆盖
+            return currentText;
         }
     }
 
@@ -192,19 +197,21 @@ async function(currentText) {
         return currentText;
     }
 
-    // 3. 清空并写入目标 Input/Textarea
+    // 3. 写入输入框
     const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
     if (input) {
+        // 【iPad 关键修复 3】：写入前让输入框聚焦，确保事件顺利派发
+        input.focus();
+
         const proto = input instanceof HTMLTextAreaElement 
             ? HTMLTextAreaElement.prototype 
             : HTMLInputElement.prototype;
         const valueSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
 
-        // 【关键改动】：先显式触发清空逻辑
+        // 清空并重新赋值
         valueSetter.call(input, "");
         input.dispatchEvent(new Event("input", { bubbles: true }));
 
-        // 再写入剪贴板最新文本
         valueSetter.call(input, clipboardText);
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
