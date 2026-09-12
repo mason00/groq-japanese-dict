@@ -15,10 +15,26 @@ MOBILE_UI_CSS = """
     background: #ffffff !important;
 }
 
+#native-paste-button,
+#submit-button {
+    margin-bottom: 0 !important;
+}
+
+#submit-trigger {
+    display: none !important;
+}
+
 .gradio-container > .contain {
     border: 0 !important;
     box-shadow: none !important;
     background: #ffffff !important;
+}
+
+.no-padding {
+    padding: 0 !important;
+}
+.no-padding .html-container {
+    padding: 0 !important;
 }
 
 #clipboard-input,
@@ -26,19 +42,34 @@ MOBILE_UI_CSS = """
     border: 1px solid var(--border-color-primary) !important;
     border-radius: 8px !important;
     background: var(--background-fill-primary) !important;
+    overflow: hidden !important;
+    padding: 0 !important;
 }
 
-#clipboard-input {
-    margin-bottom: 16px !important;
+#clipboard-input .wrap,
+#translation-output .wrap {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 !important;
 }
 
 #clipboard-input textarea,
 #translation-output textarea {
+    box-sizing: border-box !important;
     border: 0 !important;
+    border-radius: 8px !important;
     box-shadow: none !important;
+    background: transparent !important;
+    padding: 14px !important;
+}
+
+#clipboard-input textarea {
+    min-height: 56px !important;
 }
 
 #translation-output textarea {
+    min-height: 180px !important;
     line-height: 1.65 !important;
     max-height: calc(100vh - 120px) !important;
     overflow-y: auto !important;
@@ -171,14 +202,19 @@ PASTE_AND_SUBMIT_JS = """
 async function(currentText) {
     let clipboardText = null;
 
+    if (typeof window.__pendingClipboardText === "string") {
+        clipboardText = window.__pendingClipboardText;
+        window.__pendingClipboardText = null;
+    }
+
     // 1. AndroidBridge 优先
-    if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
+    if (!clipboardText && typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
         try {
             clipboardText = AndroidBridge.getClipboardText();
         } catch (error) {
             console.error("Android clipboard read failed:", error);
         }
-    } else if (navigator.clipboard && navigator.clipboard.readText) {
+    } else if (!clipboardText && navigator.clipboard && navigator.clipboard.readText) {
         try {
             // 【iPad 关键修复 1】：在读取前强制让窗口获取 Focus
             if (window.focus) window.focus();
@@ -218,6 +254,66 @@ async function(currentText) {
     }
 
     return clipboardText;
+}
+"""
+
+
+NATIVE_PASTE_BUTTON_JS = """
+function() {
+    const button = document.querySelector("#native-paste-button");
+    const submitButton = document.querySelector("#submit-button");
+    if (!button || button.dataset.bound === "true") {
+        return;
+    }
+    button.dataset.bound = "true";
+
+    const triggerSubmit = () => {
+        const gradioSubmitButton = document.querySelector("#submit-trigger button")
+            || document.querySelector("button#submit-trigger");
+        if (!gradioSubmitButton) {
+            console.error("Gradio submit trigger was not found");
+            return;
+        }
+        gradioSubmitButton.click();
+    };
+
+    submitButton?.addEventListener("click", () => {
+        triggerSubmit();
+    });
+
+    button.addEventListener("click", async () => {
+        let clipboardText = null;
+
+        if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
+            clipboardText = AndroidBridge.getClipboardText();
+        } else if (navigator.clipboard && navigator.clipboard.readText) {
+            try {
+                clipboardText = await navigator.clipboard.readText();
+            } catch (error) {
+                console.error("Browser clipboard read failed:", error);
+                return;
+            }
+        }
+
+        if (typeof clipboardText !== "string" || !clipboardText.trim()) {
+            return;
+        }
+
+        const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
+        if (!input || !submitButton) {
+            return;
+        }
+
+        const valueSetter = Object.getOwnPropertyDescriptor(
+            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+            "value"
+        ).set;
+        valueSetter.call(input, clipboardText);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        window.__pendingClipboardText = clipboardText;
+        submitButton.click();
+    });
 }
 """
 
@@ -325,12 +421,14 @@ def create_demo(
             f"（当前共 {count} 个待导出）"
         )
 
-    def save_selected_word_to_notion(words: list[list[str]], event: gr.SelectData) -> str:
+    def save_selected_word_to_notion(
+        words: list[list[str]], japanese_text: str, event: gr.SelectData
+    ) -> str:
         row_index, _ = event.index
         if row_index >= len(words):
             return "未找到所选词条。"
         surface, dictionary_form, reading, definition, grammar_note = words[row_index]
-        word = AnkiWord(surface, dictionary_form, reading, definition, grammar_note)
+        word = AnkiWord(surface, dictionary_form, reading, definition, japanese_text.strip())
 
         try:
             notion_result = notion_store.save_word(word)
@@ -367,16 +465,25 @@ def create_demo(
         return "当前待导出列表为空（点击上方表格中的生词即可加入）。"
 
     with gr.Blocks(title="日文振假名翻译工具") as demo:
-        text_input = gr.Textbox(
-            show_label=False,
-            placeholder="输入日文",
-            lines=1,
-            max_lines=8,
-            elem_id="clipboard-input",
-        )
+        with gr.Group(elem_id="clipboard-input"):
+            text_input = gr.Textbox(
+                show_label=False,
+                placeholder="输入日文",
+                lines=1,
+                max_lines=8,
+            )
+        submit_btn = gr.Button("", elem_id="submit-trigger", visible=True)
         with gr.Row():
-            submit_btn = gr.Button("🔍 提交")
-            paste_btn = gr.Button("📋 粘贴")
+            gr.HTML(
+                '<div style="display: flex; width: 100%; gap: 8px;">'
+                '<button id="native-paste-button" type="button" style="flex: 1;">'
+                "📋 粘贴"
+                "</button>"
+                '<button id="submit-button" type="button" style="flex: 1;">'
+                "🔍 提交"
+                "</button>"
+                "</div>"
+            )
 
         result_output = gr.Textbox(
             show_label=False,
@@ -406,15 +513,10 @@ def create_demo(
             text_input,
             [result_output, word_rows],
         )
-        paste_btn.click(
-            translate_and_format,
-            text_input,
-            [result_output, word_rows],
-            js=PASTE_AND_SUBMIT_JS,
-        )
         word_rows.change(lambda words: words, word_rows, words_table)
-        words_table.select(save_selected_word_to_notion, word_rows, notion_status)
+        words_table.select(save_selected_word_to_notion, [word_rows, text_input], notion_status)
 
         demo.load(None, js=CLIPBOARD_POLL_JS)
         demo.load(None, js=AUTO_RESIZE_OUTPUT_JS)
+        demo.load(None, js=NATIVE_PASTE_BUTTON_JS)
     return demo
