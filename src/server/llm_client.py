@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from langsmith import APIError, BadRequestError, RateLimitError
 import tiktoken
 import httpx
 import truststore
@@ -85,16 +86,37 @@ class GroqClient(LLMClient):
         self._client = Groq(api_key=api_key, timeout=timeout, http_client=http_client)
 
     def _request_once(self, text: str, system_prompt: str) -> Any:
-        return self._client.chat.completions.create(
-            model=self.model,
-            max_completion_tokens=int(os.getenv("LLM_MAX_COMPLETION_TOKENS", "512")),
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text},
-            ],
-        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                max_completion_tokens=int(os.getenv("LLM_MAX_COMPLETION_TOKENS", "512")),
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+            )
+            return response
+
+        except RateLimitError as e:
+                # 429 专属：触及 TPM (Tokens Per Min) 或 RPM (Requests Per Min) 限制
+                print(f"[Groq Status]: 429 Rate Limit Exceeded")
+                print(f"[Error Code]: {e.code}")      # 例如 'rate_limit_exceeded'
+                print(f"[Error Message]: {e.message}") # 包含具体超出哪个指标、需要等待多久
+                raise e
+
+        except BadRequestError as e:
+                # 400 专属：参数错误、JSON 格式不合规或 Context 超过限制
+                print(f"[Groq Status]: 400 Bad Request")
+                print(f"[Error Message]: {e.message}")
+                raise e
+
+        except APIError as e:
+                # 捕获其他所有 HTTP 异常 (如 401 Unauthorized, 500 Internal Error)
+                print(f"[Groq Status]: {e.status_code}")
+                print(f"[Error Message]: {e.message}")
+                raise e
 
     def complete(self, text: str, system_prompt: str) -> LLMResponse:
         response = self._with_retry(self._request_once, text, system_prompt)

@@ -168,20 +168,11 @@ async function(currentText) {
 
 
 PASTE_AND_SUBMIT_JS = """
-async function() {
-    const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
-    if (input) {
-        const valueSetter = Object.getOwnPropertyDescriptor(
-            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            "value"
-        ).set;
-        valueSetter.call(input, "");
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-
+async function(currentText) {
     let clipboardText = null;
-    if (typeof AndroidBridge !== "undefined") {
+
+    // 1. 读取剪贴板内容
+    if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
         try {
             clipboardText = AndroidBridge.getClipboardText();
         } catch (error) {
@@ -189,25 +180,36 @@ async function() {
         }
     } else if (navigator.clipboard && navigator.clipboard.readText) {
         try {
+            // 注意：此处必须由用户点击事件直接触发，否则会被浏览器拒绝 permission error
             clipboardText = await navigator.clipboard.readText();
         } catch (error) {
             console.error("Browser clipboard read failed:", error);
         }
     }
 
-    if (typeof clipboardText !== "string") {
-        return "";
+    // 2. 校验剪贴板文本
+    if (typeof clipboardText !== "string" || !clipboardText.trim()) {
+        return currentText;
     }
 
+    // 3. 清空并写入目标 Input/Textarea
+    const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
     if (input) {
-        const valueSetter = Object.getOwnPropertyDescriptor(
-            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            "value"
-        ).set;
+        const proto = input instanceof HTMLTextAreaElement 
+            ? HTMLTextAreaElement.prototype 
+            : HTMLInputElement.prototype;
+        const valueSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
+
+        // 【关键改动】：先显式触发清空逻辑
+        valueSetter.call(input, "");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+
+        // 再写入剪贴板最新文本
         valueSetter.call(input, clipboardText);
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
     }
+
     return clipboardText;
 }
 """
@@ -386,17 +388,16 @@ def create_demo(
         )
         notion_status = gr.Markdown()
 
-        text_input.submit(
-            translate_and_format,
-            text_input,
-            [result_output, word_rows],
-            js=SUBMIT_CLIPBOARD_JS,
-        )
+        # text_input.submit(
+        #     translate_and_format,
+        #     text_input,
+        #     [result_output, word_rows],
+        #     js=SUBMIT_CLIPBOARD_JS,
+        # )
         submit_btn.click(
             translate_and_format,
             text_input,
             [result_output, word_rows],
-            js=SUBMIT_CLIPBOARD_JS,
         )
         paste_btn.click(
             translate_and_format,
