@@ -167,6 +167,52 @@ async function(currentText) {
 """
 
 
+PASTE_AND_SUBMIT_JS = """
+async function() {
+    const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
+    if (input) {
+        const valueSetter = Object.getOwnPropertyDescriptor(
+            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+            "value"
+        ).set;
+        valueSetter.call(input, "");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    let clipboardText = null;
+    if (typeof AndroidBridge !== "undefined") {
+        try {
+            clipboardText = AndroidBridge.getClipboardText();
+        } catch (error) {
+            console.error("Android clipboard read failed:", error);
+        }
+    } else if (navigator.clipboard && navigator.clipboard.readText) {
+        try {
+            clipboardText = await navigator.clipboard.readText();
+        } catch (error) {
+            console.error("Browser clipboard read failed:", error);
+        }
+    }
+
+    if (typeof clipboardText !== "string") {
+        return "";
+    }
+
+    if (input) {
+        const valueSetter = Object.getOwnPropertyDescriptor(
+            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+            "value"
+        ).set;
+        valueSetter.call(input, clipboardText);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    return clipboardText;
+}
+"""
+
+
 AUTO_RESIZE_OUTPUT_JS = """
 function() {
     const resizeOutput = () => {
@@ -315,15 +361,17 @@ def create_demo(
         text_input = gr.Textbox(
             show_label=False,
             placeholder="输入日文",
-            lines=3,
+            lines=1,
             max_lines=8,
             elem_id="clipboard-input",
-            submit_btn="🔍",
         )
+        with gr.Row():
+            submit_btn = gr.Button("🔍 提交")
+            paste_btn = gr.Button("📋 粘贴")
 
         result_output = gr.Textbox(
             show_label=False,
-            lines=8,
+            lines=6,
             max_lines=100,
             interactive=False,
             elem_id="translation-output",
@@ -343,6 +391,18 @@ def create_demo(
             text_input,
             [result_output, word_rows],
             js=SUBMIT_CLIPBOARD_JS,
+        )
+        submit_btn.click(
+            translate_and_format,
+            text_input,
+            [result_output, word_rows],
+            js=SUBMIT_CLIPBOARD_JS,
+        )
+        paste_btn.click(
+            translate_and_format,
+            text_input,
+            [result_output, word_rows],
+            js=PASTE_AND_SUBMIT_JS,
         )
         word_rows.change(lambda words: words, word_rows, words_table)
         words_table.select(save_selected_word_to_notion, word_rows, notion_status)
