@@ -476,11 +476,11 @@ def create_demo(
         with gr.Row():
             gr.HTML(
                 '<div style="display: flex; width: 100%; gap: 8px;">'
-                '<button id="native-paste-button" type="button" style="flex: 1;">'
-                "📋 粘贴"
-                "</button>"
                 '<button id="submit-button" type="button" style="flex: 1;">'
                 "🔍 提交"
+                "</button>"
+                '<button id="native-paste-button" type="button" style="flex: 1;">'
+                "📋 粘贴"
                 "</button>"
                 "</div>"
             )
