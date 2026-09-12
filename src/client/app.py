@@ -202,49 +202,40 @@ PASTE_AND_SUBMIT_JS = """
 async function(currentText) {
     let clipboardText = null;
 
-    if (typeof window.__pendingClipboardText === "string") {
-        clipboardText = window.__pendingClipboardText;
-        window.__pendingClipboardText = null;
-    }
-
-    // 1. AndroidBridge 优先
-    if (!clipboardText && typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
+    // 1. Android 优先
+    if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
         try {
             clipboardText = AndroidBridge.getClipboardText();
         } catch (error) {
             console.error("Android clipboard read failed:", error);
         }
-    } else if (!clipboardText && navigator.clipboard && navigator.clipboard.readText) {
+    } 
+    // 2. iPad / Safari Clipboard API 兼容
+    else if (navigator.clipboard && navigator.clipboard.readText) {
         try {
-            // 【iPad 关键修复 1】：在读取前强制让窗口获取 Focus
             if (window.focus) window.focus();
-            
-            // 读取剪贴板
             clipboardText = await navigator.clipboard.readText();
         } catch (error) {
-            console.error("iPad/Browser clipboard read failed:", error);
-            // 【iPad 关键修复 2】：如果被 Safari 拒绝，降级返回原内容，避免覆盖
+            console.warn("iPad/Browser clipboard access blocked or denied:", error);
+            // 读取失败时提示用户，并保留当前输入框内容
             return currentText;
         }
     }
 
-    // 2. 校验剪贴板文本
     if (typeof clipboardText !== "string" || !clipboardText.trim()) {
         return currentText;
     }
 
-    // 3. 写入输入框
+    // 3. 同步回 Gradio 输入框组件
     const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
     if (input) {
-        // 【iPad 关键修复 3】：写入前让输入框聚焦，确保事件顺利派发
         input.focus();
-
         const proto = input instanceof HTMLTextAreaElement 
             ? HTMLTextAreaElement.prototype 
             : HTMLInputElement.prototype;
         const valueSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
 
-        // 清空并重新赋值
+        // 清空并重新赋值，触发事件以便 Gradio React/Vue 监听到变动
         valueSetter.call(input, "");
         input.dispatchEvent(new Event("input", { bubbles: true }));
 
@@ -257,63 +248,26 @@ async function(currentText) {
 }
 """
 
-
 NATIVE_PASTE_BUTTON_JS = """
 function() {
-    const button = document.querySelector("#native-paste-button");
-    const submitButton = document.querySelector("#submit-button");
-    if (!button || button.dataset.bound === "true") {
-        return;
+    const pasteBtn = document.querySelector("#native-paste-button");
+    const submitBtn = document.querySelector("#submit-button");
+    const gradioTrigger = document.querySelector("#submit-trigger button") || document.querySelector("button#submit-trigger");
+
+    if (submitBtn && !submitBtn.dataset.bound) {
+        submitBtn.dataset.bound = "true";
+        submitBtn.addEventListener("click", () => {
+            if (gradioTrigger) gradioTrigger.click();
+        });
     }
-    button.dataset.bound = "true";
 
-    const triggerSubmit = () => {
-        const gradioSubmitButton = document.querySelector("#submit-trigger button")
-            || document.querySelector("button#submit-trigger");
-        if (!gradioSubmitButton) {
-            console.error("Gradio submit trigger was not found");
-            return;
-        }
-        gradioSubmitButton.click();
-    };
-
-    submitButton?.addEventListener("click", () => {
-        triggerSubmit();
-    });
-
-    button.addEventListener("click", async () => {
-        let clipboardText = null;
-
-        if (typeof AndroidBridge !== "undefined" && typeof AndroidBridge.getClipboardText === "function") {
-            clipboardText = AndroidBridge.getClipboardText();
-        } else if (navigator.clipboard && navigator.clipboard.readText) {
-            try {
-                clipboardText = await navigator.clipboard.readText();
-            } catch (error) {
-                console.error("Browser clipboard read failed:", error);
-                return;
-            }
-        }
-
-        if (typeof clipboardText !== "string" || !clipboardText.trim()) {
-            return;
-        }
-
-        const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
-        if (!input || !submitButton) {
-            return;
-        }
-
-        const valueSetter = Object.getOwnPropertyDescriptor(
-            input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            "value"
-        ).set;
-        valueSetter.call(input, clipboardText);
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        window.__pendingClipboardText = clipboardText;
-        submitButton.click();
-    });
+    if (pasteBtn && !pasteBtn.dataset.bound) {
+        pasteBtn.dataset.bound = "true";
+        // 点击“粘贴”按钮时，直接触发 Gradio 的隐藏提交按钮，在 Gradio 的 JS 钩子中去同步剪贴板
+        pasteBtn.addEventListener("click", () => {
+            if (gradioTrigger) gradioTrigger.click();
+        });
+    }
 }
 """
 
@@ -510,8 +464,9 @@ def create_demo(
         # )
         submit_btn.click(
             translate_and_format,
-            text_input,
-            [result_output, word_rows],
+            inputs=text_input,
+            outputs=[result_output, word_rows],
+            js=PASTE_AND_SUBMIT_JS  # <--- 关键修复：把剪贴板读取逻辑放在 Gradio 的事件前置 JS 中执行
         )
         word_rows.change(lambda words: words, word_rows, words_table)
         words_table.select(save_selected_word_to_notion, [word_rows, text_input], notion_status)
