@@ -24,25 +24,31 @@ def create_demo(
         notion_client or NotionClient(),
     )
 
-    with gr.Blocks(title="日文振假名翻译工具") as demo:
-        with gr.Group(elem_id="clipboard-input"):
+    with gr.Blocks(title="日文振假名翻译工具", css=MOBILE_UI_CSS) as demo:
+        with gr.Row(elem_id="clipboard-input"):
             text_input = gr.Textbox(
                 show_label=False,
                 placeholder="输入日文",
                 lines=1,
-                max_lines=8,
+                max_lines=1,
+                scale=1,
+                elem_id="text-input",
             )
-        submit_btn = gr.Button("", elem_id="submit-trigger", visible=True)
-        with gr.Row():
-            gr.HTML(
-                '<div style="display: flex; width: 100%; gap: 8px;">'
-                '<button id="submit-button" type="button" style="flex: 1;">'
-                "🔍 提交"
-                "</button>"
-                '<button id="native-paste-button" type="button" style="flex: 1;">'
-                "📋 粘贴"
-                "</button>"
-                "</div>"
+            submit_btn = gr.Button(
+                "🔍",
+                elem_id="submit-button",
+                scale=0,
+                variant="secondary",
+                min_width=44,
+                size="lg",
+            )
+            gr.Button(
+                "📋",
+                elem_id="native-paste-button",
+                scale=0,
+                variant="secondary",
+                min_width=44,
+                size="lg",
             )
 
         result_output = gr.Textbox(
@@ -57,8 +63,9 @@ def create_demo(
             headers=["原文", "原形", "读音", "释义", "词性/语法"],
             datatype=["str", "str", "str", "str", "str"],
             interactive=False,
-            label="词汇拆解（点击任一词条加入 Anki）",
+            #label="词汇拆解（点击任一词条加入 Anki）",
             elem_id="words-table",
+            buttons=[],
         )
         notion_status = gr.Markdown()
 

@@ -2,80 +2,10 @@
 
 
 MOBILE_UI_CSS = """
-.gradio-container {
-    max-width: 100% !important;
+#text-input,
+#translation-output,
+#words-table {
     padding: 0 !important;
-    background: #ffffff !important;
-}
-
-#native-paste-button,
-#submit-button {
-    margin-bottom: 0 !important;
-}
-
-#submit-trigger {
-    display: none !important;
-}
-
-.gradio-container > .contain {
-    border: 0 !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-}
-
-.no-padding {
-    padding: 0 !important;
-}
-.no-padding .html-container {
-    padding: 0 !important;
-}
-
-#clipboard-input,
-#translation-output {
-    border: 1px solid var(--border-color-primary) !important;
-    border-radius: 8px !important;
-    background: var(--background-fill-primary) !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-}
-
-#clipboard-input .wrap,
-#translation-output .wrap {
-    border: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-
-#clipboard-input textarea,
-#translation-output textarea {
-    box-sizing: border-box !important;
-    border: 0 !important;
-    border-radius: 8px !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 14px !important;
-}
-
-#clipboard-input textarea {
-    min-height: 56px !important;
-}
-
-#translation-output textarea {
-    min-height: 180px !important;
-    line-height: 1.65 !important;
-    max-height: calc(100vh - 120px) !important;
-    overflow-y: auto !important;
-    resize: none !important;
-}
-
-#words-table table td.selected {
-    background: transparent !important;
-    outline: none !important;
-}
-#words-table table tr.selected td,
-#words-table table tr:has(td.selected) td {
-    background: var(--color-accent-soft, rgba(99, 102, 241, 0.15)) !important;
 }
 """
 
@@ -111,7 +41,7 @@ function() {
             const clipboardText = await readClipboard();
             if (typeof clipboardText !== "string" || !clipboardText.trim() || clipboardText === lastClipboard) return;
             const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
-            const submit = document.querySelector("#clipboard-input button");
+            const submit = document.querySelector("#submit-button button, button#submit-button");
             if (!input || !submit) return;
             lastClipboard = clipboardText;
             const prototype = input instanceof HTMLTextAreaElement
@@ -137,9 +67,7 @@ function() {
 
 NATIVE_PASTE_BUTTON_JS = """
 function() {
-    const pasteBtn = document.querySelector("#native-paste-button");
-    const submitBtn = document.querySelector("#submit-button");
-    const gradioTrigger = document.querySelector("#submit-trigger button") || document.querySelector("button#submit-trigger");
+    const findButton = (id) => document.querySelector(`#${id} button, button#${id}`);
 
     const setInputValue = (input, value) => {
         const prototype = input instanceof HTMLTextAreaElement
@@ -161,19 +89,20 @@ function() {
         return null;
     };
 
-    if (submitBtn && !submitBtn.dataset.bound) {
-        submitBtn.dataset.bound = "true";
-        submitBtn.addEventListener("click", () => gradioTrigger?.click());
-    }
-    if (pasteBtn && !pasteBtn.dataset.bound) {
-        pasteBtn.dataset.bound = "true";
-        pasteBtn.addEventListener("click", async () => {
-            const clipboardText = await readClipboard();
-            const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
-            if (input && typeof clipboardText === "string" && clipboardText.trim()) setInputValue(input, clipboardText);
-            gradioTrigger?.click();
-        });
-    }
+    if (document.documentElement.dataset.nativePasteBound === "true") return;
+    document.documentElement.dataset.nativePasteBound = "true";
+    document.addEventListener("click", async (event) => {
+        if (!(event.target instanceof Element)) return;
+        const clickedPaste = event.target.closest("#native-paste-button");
+        const submitTrigger = () => findButton("submit-button")?.click();
+
+        if (!clickedPaste) return;
+
+        const clipboardText = await readClipboard();
+        const input = document.querySelector("#clipboard-input textarea, #clipboard-input input");
+        if (input && typeof clipboardText === "string" && clipboardText.trim()) setInputValue(input, clipboardText);
+        requestAnimationFrame(submitTrigger);
+    });
 }
 """
 
