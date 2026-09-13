@@ -118,7 +118,7 @@ class NotionClient:
             "properties": {
                 "Word": {"title": [{"text": {"content": word.dictionary_form.strip()}}]},
                 "Reading": {"rich_text": [{"text": {"content": word.reading.strip()}}]},
-                "Meaning": {"rich_text": [{"text": {"content": word.surface.strip()}}]},
+                "Meaning": {"rich_text": [{"text": {"content": word.definition.strip()}}]},
                 "Example": {"rich_text": [{"text": {"content": word.grammar_note.strip()}}]},
             },
         }
