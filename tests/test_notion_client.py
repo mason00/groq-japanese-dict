@@ -33,8 +33,9 @@ class NotionClientTests(unittest.TestCase):
         self.assertEqual(result.status, "added")
         payload = post.call_args_list[1].kwargs["json"]
         self.assertEqual(payload["properties"]["Word"]["title"][0]["text"]["content"], "食べる")
-        self.assertEqual(payload["properties"]["Reading"]["rich_text"][0]["text"]["content"], "たべる")
-        self.assertEqual(payload["properties"]["Example"]["rich_text"][0]["text"]["content"], "食べた")
+        self.assertEqual(payload["properties"]["Meaning"]["rich_text"][0]["text"]["content"], "吃")
+        self.assertEqual(payload["properties"]["Example"]["rich_text"][0]["text"]["content"], "動詞")
+        self.assertEqual(payload["properties"]["Translation"]["rich_text"][0]["text"]["content"], "")
         self.assertNotIn("Type", payload["properties"])
 
 

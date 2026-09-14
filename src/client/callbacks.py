@@ -39,7 +39,10 @@ def create_callbacks(
         if row_index >= len(words):
             return "未找到所选词条。"
         surface, dictionary_form, reading, definition, grammar_note = words[row_index]
-        word = AnkiWord(surface, dictionary_form, reading, definition, formatted_output.split("\n\n")[0].strip() or grammar_note)
+        parts = formatted_output.split("\n\n") if formatted_output else []
+        example = parts[0].strip() if len(parts) > 0 and parts[0].strip() else grammar_note
+        translation = parts[1].strip() if len(parts) > 1 else ""
+        word = AnkiWord(surface, dictionary_form, reading, definition, example, translation)
         try:
             notion_result = notion_store.save_word(word)
             messages = {"added": "Notion DB 添加成功", "exists": "Notion DB 已存在，未重复添加", "disabled": "Notion DB 未配置"}

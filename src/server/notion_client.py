@@ -13,7 +13,11 @@ NOTION_VERSION = "2022-06-28"
 
 
 def _log(message: str) -> None:
-    print(f"[notion] {message}", flush=True)
+    try:
+        print(f"[notion] {message}", flush=True)
+    except UnicodeEncodeError:
+        safe_message = message.encode("ascii", errors="backslashreplace").decode("ascii")
+        print(f"[notion] {safe_message}", flush=True)
 
 
 @dataclass(frozen=True)
@@ -120,5 +124,6 @@ class NotionClient:
                 "Reading": {"rich_text": [{"text": {"content": word.reading.strip()}}]},
                 "Meaning": {"rich_text": [{"text": {"content": word.definition.strip()}}]},
                 "Example": {"rich_text": [{"text": {"content": word.grammar_note.strip()}}]},
+                "Translation": {"rich_text": [{"text": {"content": word.translation.strip()}}]},
             },
         }

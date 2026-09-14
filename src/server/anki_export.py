@@ -17,6 +17,7 @@ class AnkiWord:
     reading: str
     definition: str
     grammar_note: str
+    translation: str = ""
 
     @property
     def key(self) -> tuple[str, str]:
