@@ -123,3 +123,32 @@ function() {
     resizeOutput();
 }
 """
+
+
+CARD_UI_CSS = """
+#card-title {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+#vocabulary-card button {
+    min-height: 16rem;
+    white-space: normal;
+    font-size: 2rem;
+}
+
+#card-details {
+    min-height: 8rem;
+    padding: 1rem;
+    border: 1px solid var(--border-color-primary);
+}
+
+#card-counter {
+    text-align: center;
+}
+
+#card-navigation {
+    max-width: 32rem;
+    margin: 0 auto;
+}
+"""

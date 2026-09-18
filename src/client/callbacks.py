@@ -5,7 +5,7 @@ from collections.abc import Callable
 import gradio as gr
 
 from src.server.anki_export import AnkiExportStore, AnkiWord
-from src.server.notion_client import NotionClient
+from src.server.notion_client import NotionClient, VocabularyCard
 
 
 def create_callbacks(
@@ -68,4 +68,69 @@ def create_callbacks(
         "save_selected_word_to_notion": save_selected_word_to_notion,
         "download_anki": download_anki,
         "refresh_pending_status": refresh_pending_status,
+    }
+
+
+def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[..., object]]:
+    def card_display(card: VocabularyCard, revealed: bool) -> tuple[str, str]:
+        details = ""
+        if revealed:
+            details = "\n\n".join(
+                value
+                for value in [
+                    f"**读音**\n{card.reading}" if card.reading else "",
+                    f"**释义**\n{card.meaning}" if card.meaning else "",
+                    f"**例句**\n{card.example}" if card.example else "",
+                    f"**翻译**\n{card.translation}" if card.translation else "",
+                ]
+                if value
+            )
+        return card.word, details
+
+    def navigation_updates(index: int, count: int) -> tuple[object, object]:
+        return (
+            gr.Button("Previous", interactive=index > 0),
+            gr.Button("Next", interactive=index < count - 1),
+        )
+
+    def load_cards() -> tuple[list[VocabularyCard], int, str, str, str, object, object]:
+        try:
+            cards = notion_client.list_vocabulary_cards()
+        except Exception as error:
+            print(f"[notion] card load failed: {error}", flush=True)
+            cards = []
+            message = "无法读取 Notion 词汇库。"
+        else:
+            message = "Notion 词汇库为空。" if not cards else ""
+
+        if not cards:
+            previous, next_card = navigation_updates(0, 0)
+            return cards, 0, gr.Button(message, interactive=False), "", "0 / 0", previous, next_card
+
+        word, details = card_display(cards[0], revealed=False)
+        previous, next_card = navigation_updates(0, len(cards))
+        return cards, 0, gr.Button(word, interactive=True), details, f"1 / {len(cards)}", previous, next_card
+
+    def reveal_card(cards: list[VocabularyCard], index: int) -> str:
+        if not cards:
+            return ""
+        _, details = card_display(cards[index], revealed=True)
+        return details
+
+    def change_card(
+        cards: list[VocabularyCard], index: int, direction: int
+    ) -> tuple[int, str, str, str, object, object]:
+        if not cards:
+            previous, next_card = navigation_updates(0, 0)
+            return 0, gr.Button("Notion 词汇库为空。", interactive=False), "", "0 / 0", previous, next_card
+        next_index = min(max(index + direction, 0), len(cards) - 1)
+        word, details = card_display(cards[next_index], revealed=False)
+        previous, next_card = navigation_updates(next_index, len(cards))
+        return next_index, gr.Button(word, interactive=True), details, f"{next_index + 1} / {len(cards)}", previous, next_card
+
+    return {
+        "load_cards": load_cards,
+        "reveal_card": reveal_card,
+        "previous_card": lambda cards, index: change_card(cards, index, -1),
+        "next_card": lambda cards, index: change_card(cards, index, 1),
     }

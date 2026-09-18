@@ -35,3 +35,4 @@ start_api.local.bat
 .idea/
 .DS_Store
 Thumbs.db
+.vs/

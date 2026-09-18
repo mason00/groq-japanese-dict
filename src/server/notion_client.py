@@ -26,6 +26,16 @@ class NotionSaveResult:
     message: str = ""
 
 
+@dataclass(frozen=True)
+class VocabularyCard:
+    word: str
+    reading: str
+    meaning: str
+    example: str
+    translation: str
+    created_time: str
+
+
 class NotionClient:
     """Adds vocabulary to a Notion database without creating duplicates."""
 
@@ -75,6 +85,33 @@ class NotionClient:
         _log(f"create succeeded: {word_key}")
         return NotionSaveResult("added")
 
+    def list_vocabulary_cards(self) -> list[VocabularyCard]:
+        if not self.configured:
+            raise RuntimeError("未配置 NOTION_TOKEN 或 NOTION_DATABASE_ID")
+
+        cards: list[VocabularyCard] = []
+        start_cursor: str | None = None
+        while True:
+            payload: dict[str, object] = {"page_size": 100}
+            if start_cursor:
+                payload["start_cursor"] = start_cursor
+            response = httpx.post(
+                f"{NOTION_API_URL}/databases/{self.database_id}/query",
+                headers=self._headers(),
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            cards.extend(self._card_from_page(page) for page in data.get("results", []))
+            if not data.get("has_more"):
+                break
+            start_cursor = data.get("next_cursor")
+            if not start_cursor:
+                break
+
+        return sorted(cards, key=lambda card: card.created_time, reverse=True)
+
     def _exists(self, word: AnkiWord) -> bool:
         _log(
             f"query started: word={word.dictionary_form.strip()} "
@@ -115,6 +152,33 @@ class NotionClient:
             "Notion-Version": NOTION_VERSION,
             "Content-Type": "application/json",
         }
+
+    @staticmethod
+    def _card_from_page(page: dict[str, object]) -> VocabularyCard:
+        properties = page.get("properties", {})
+        if not isinstance(properties, dict):
+            properties = {}
+        return VocabularyCard(
+            word=NotionClient._property_text(properties.get("Word"), "title"),
+            reading=NotionClient._property_text(properties.get("Reading"), "rich_text"),
+            meaning=NotionClient._property_text(properties.get("Meaning"), "rich_text"),
+            example=NotionClient._property_text(properties.get("Example"), "rich_text"),
+            translation=NotionClient._property_text(properties.get("Translation"), "rich_text"),
+            created_time=str(page.get("created_time", "")),
+        )
+
+    @staticmethod
+    def _property_text(property_value: object, property_type: str) -> str:
+        if not isinstance(property_value, dict):
+            return ""
+        fragments = property_value.get(property_type, [])
+        if not isinstance(fragments, list):
+            return ""
+        return "".join(
+            fragment.get("plain_text", "")
+            for fragment in fragments
+            if isinstance(fragment, dict) and isinstance(fragment.get("plain_text"), str)
+        )
 
     def _page_payload(self, word: AnkiWord) -> dict[str, object]:
         return {

@@ -6,6 +6,8 @@ print("[startup] app.py import started", flush=True)
 
 import gradio as gr
 import spaces
+from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 
 # 仅用于通过 ZeroGPU 启动校验，空函数，毫秒级执行，不会超时。
@@ -46,7 +48,7 @@ print(
 	flush=True,
 )
 
-from src.client.app import create_demo
+from src.client.app import create_card_demo, create_demo
 from src.server.service import translate_text
 
 
@@ -58,6 +60,17 @@ def gradio_translate(text: str):
 
 
 demo = create_demo(gradio_translate)
+card_demo = create_card_demo()
+app = FastAPI()
+
+
+@app.get("/card", include_in_schema=False)
+def card_route() -> RedirectResponse:
+	return RedirectResponse("/card/")
+
+
+app = gr.mount_gradio_app(app, card_demo, path="/card", show_error=True, ssr_mode=False)
+app = gr.mount_gradio_app(app, demo, path="/", show_error=True, ssr_mode=False)
 print("[startup] Gradio demo is ready", flush=True)
 
 if __name__ == "__main__":
@@ -66,10 +79,10 @@ if __name__ == "__main__":
 		f"[startup] launching Gradio on {server_name}:{os.getenv('PORT', '7860')}",
 		flush=True,
 	)
-	demo.launch(
-		server_name=server_name,
-		server_port=int(os.getenv("PORT", "7860")),
-		debug=True,
-		show_error=True,
-		ssr_mode=False,
+	import uvicorn
+
+	uvicorn.run(
+		app,
+		host=server_name,
+		port=int(os.getenv("PORT", "7860")),
 	)
