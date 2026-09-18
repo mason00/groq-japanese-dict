@@ -11,7 +11,6 @@ sudachidict_core
 tenacity
 tiktoken
 truststore
-uvicorn>=0.52.0
 jamdict
 jamdict-data
 puchikarui

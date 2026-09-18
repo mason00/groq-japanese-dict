@@ -25,7 +25,7 @@ def create_demo(
         notion_client or NotionClient(),
     )
 
-    with gr.Blocks(title="日文振假名翻译工具", css=MOBILE_UI_CSS) as demo:
+    with gr.Blocks(title="日文振假名翻译工具") as demo:
         with gr.Row(elem_id="clipboard-input"):
             text_input = gr.Textbox(
                 show_label=False,
@@ -91,7 +91,7 @@ def create_demo(
 def create_card_demo(notion_client: NotionClient | None = None) -> gr.Blocks:
     callbacks = create_card_callbacks(notion_client or NotionClient())
 
-    with gr.Blocks(title="日语词汇卡", css=CARD_UI_CSS) as demo:
+    with gr.Blocks(title="日语词汇卡") as demo:
         cards = gr.State([])
         card_index = gr.State(0)
         gr.Markdown("# 日语词汇卡", elem_id="card-title")

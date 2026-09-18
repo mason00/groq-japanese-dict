@@ -1,3 +1,3 @@
 @echo off
-rem The local app now serves FastAPI and Gradio from one Uvicorn process.
+rem Start the Gradio application.
 call "%~dp0start_api.bat"

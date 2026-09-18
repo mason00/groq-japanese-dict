@@ -17,10 +17,10 @@ if not defined LANGSMITH_API_KEY (
 set "LANGCHAIN_TRACING_V2=%LANGSMITH_TRACING%"
 set "LANGCHAIN_PROJECT=%LANGSMITH_PROJECT%"
 
-if exist ".venv\Scripts\gradio.exe" (
-    ".venv\Scripts\gradio.exe" app.py --watch-dirs src
+if exist ".venv\Scripts\uvicorn.exe" (
+    ".venv\Scripts\uvicorn.exe" app:app --reload --reload-dir src --port 7860
 ) else (
-    gradio app.py --watch-dirs src
+    uvicorn app:app --reload --reload-dir src --port 7860
 )
 
 endlocal
