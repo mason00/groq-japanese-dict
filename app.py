@@ -1,3 +1,4 @@
+os.environ.setdefault("GRADIO_SSR_MODE", "false")
 import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -120,19 +121,8 @@ async def add_initial_card_position(request: Request, call_next):
 # because "/" is the catch-all root application.
 # ---------------------------------------------------------------------------
 
-app = gr.mount_gradio_app(
-    app,
-    card_demo,
-    path="/card",
-    css=CARD_UI_CSS,
-)
-
-app = gr.mount_gradio_app(
-    app,
-    demo,
-    path="/",
-    css=MOBILE_UI_CSS,
-)
+app = gr.mount_gradio_app(app, card_demo, path="/card", css=CARD_UI_CSS, ssr_mode=False)
+app = gr.mount_gradio_app(app, demo, path="/", css=MOBILE_UI_CSS, ssr_mode=False)
 
 print("[startup] Gradio apps mounted successfully", flush=True)
 
