@@ -98,13 +98,6 @@ def health_check():
 
 # ---------------------------------------------------------------------------
 # /card redirect
-#
-# This makes:
-#   /card
-# redirect to:
-#   /card/?1
-#
-# so the card page opens at the intended initial position.
 # ---------------------------------------------------------------------------
 
 @app.middleware("http")
@@ -123,7 +116,8 @@ async def add_initial_card_position(request: Request, call_next):
 # Mount Gradio applications
 #
 # IMPORTANT:
-# Mount /card before / because "/" is the catch-all application.
+# /card must be mounted before /
+# because "/" is the catch-all root application.
 # ---------------------------------------------------------------------------
 
 app = gr.mount_gradio_app(
@@ -146,35 +140,49 @@ print("[startup] Gradio apps mounted successfully", flush=True)
 # ---------------------------------------------------------------------------
 # ZeroGPU startup
 #
-# Normally spaces hooks into Gradio's demo.launch() and automatically
-# reports the @spaces.GPU functions to the ZeroGPU scheduler.
-#
-# We are using FastAPI + mount_gradio_app(), so demo.launch() is never called.
-# Therefore we explicitly call spaces.zero.startup().
+# Normally @spaces.GPU is registered through the Gradio launch() lifecycle.
+# Because this application uses FastAPI + mount_gradio_app(), launch() is
+# not called. We therefore explicitly trigger the ZeroGPU startup report.
 # ---------------------------------------------------------------------------
 
-def _zerogpu_startup() -> None:
+def _zerogpu_startup():
     try:
-        from spaces.zero import startup as zero_startup
+        from spaces import zero
     except ImportError:
         print(
-            "[zerogpu] spaces.zero.startup not available; "
-            "skipping manual startup",
+            "[zerogpu] spaces.zero not available",
             flush=True,
         )
         return
 
     try:
-        zero_startup()
+        if hasattr(spaces, "is_zerogpu"):
+            if not spaces.is_zerogpu():
+                print(
+                    "[zerogpu] not running on ZeroGPU; skipping startup",
+                    flush=True,
+                )
+                return
+
+        print(
+            "[zerogpu] sending startup report...",
+            flush=True,
+        )
+
+        zero.startup()
+
         print(
             "[zerogpu] startup report sent successfully",
             flush=True,
         )
+
     except Exception as exc:
         print(
-            f"[zerogpu] manual startup report failed: {exc}",
+            "[zerogpu] startup report failed: "
+            f"{type(exc).__name__}: {exc}",
             flush=True,
         )
+        raise
 
 
 _zerogpu_startup()
