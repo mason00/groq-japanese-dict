@@ -1,4 +1,3 @@
-os.environ.setdefault("GRADIO_SSR_MODE", "false")
 import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -17,6 +16,7 @@ from src.client.app import (
 )
 from src.server.service import translate_text
 
+os.environ.setdefault("GRADIO_SSR_MODE", "false")
 
 print("[startup] app.py import started", flush=True)
 
