@@ -6,6 +6,7 @@ from src.client.callbacks import create_card_callbacks, create_callbacks
 from src.client.ui_assets import (
     AUTO_RESIZE_OUTPUT_JS,
     CARD_UI_CSS,
+    CARD_URL_SYNC_JS,
     CLIPBOARD_POLL_JS,
     MOBILE_UI_CSS,
     NATIVE_PASTE_BUTTON_JS,
@@ -102,6 +103,7 @@ def create_card_demo(notion_client: NotionClient | None = None) -> gr.Blocks:
             previous_button = gr.Button("Previous", interactive=False)
             next_button = gr.Button("Next", interactive=False)
 
+        demo.load(None, js=CARD_URL_SYNC_JS)
         demo.load(
             callbacks["load_cards"],
             outputs=[cards, card_index, card_word, card_details, card_counter, previous_button, next_button],

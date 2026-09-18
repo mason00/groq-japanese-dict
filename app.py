@@ -1,10 +1,24 @@
 import os
 import sys
+
+# 1. Import spaces FIRST so ZeroGPU patches runtime before other modules
+try:
+    import spaces
+    HAS_SPACES = True
+except ImportError:
+    HAS_SPACES = False
+    # Fallback dummy decorator for local non-ZeroGPU runs
+    class spaces:
+        @staticmethod
+        def GPU(fn=None, duration=None):
+            def decorator(f):
+                return f
+            return decorator(fn) if fn else decorator
+
 from importlib.metadata import PackageNotFoundError, version
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 import gradio as gr
-import spaces
-from src.client.app import CARD_UI_CSS, MOBILE_UI_CSS, create_card_demo, create_demo
 
 print("[startup] app.py import started", flush=True)
 
@@ -14,6 +28,7 @@ def _package_version(package_name: str) -> str:
         return version(package_name)
     except PackageNotFoundError:
         return "not-installed"
+
 
 def _configured(name: str) -> str:
     value = os.getenv(name, "")
@@ -25,7 +40,7 @@ print(
     f"python={sys.version.split()[0]} "
     f"gradio={_package_version('gradio')} "
     f"fastapi={_package_version('fastapi')} "
-    f"spaces={_package_version('spaces')}",
+    f"spaces={_package_version('spaces') if HAS_SPACES else 'not-installed'}",
     flush=True,
 )
 print(
@@ -41,24 +56,25 @@ print(
     flush=True,
 )
 
-from src.client.app import create_card_demo, create_demo
+from src.client.app import CARD_UI_CSS, MOBILE_UI_CSS, create_card_demo, create_demo
 from src.server.service import translate_text
 
 print("[startup] project modules imported", flush=True)
 
 
+# 2. Module-level ZeroGPU worker function
 @spaces.GPU
 def gradio_translate(text: str):
     return translate_text(text)
 
 
-# Create individual Gradio Blocks apps
+# 3. Create individual Gradio Blocks apps
 demo = create_demo(gradio_translate)
 card_demo = create_card_demo()
 
 print("[startup] Gradio demos initialized", flush=True)
 
-# Initialize FastAPI app
+# 4. Initialize FastAPI app
 app = FastAPI()
 
 
@@ -66,8 +82,15 @@ app = FastAPI()
 def health_check():
     return {"status": "ok"}
 
-# Mount Sub-Apps
-# 1. Card demo accessible via /card
+
+@app.middleware("http")
+async def add_initial_card_position(request: Request, call_next):
+    if request.method == "GET" and request.url.path in {"/card", "/card/"} and not request.url.query:
+        return RedirectResponse("/card/?1", status_code=307)
+    return await call_next(request)
+
+
+# 5. Mount Sub-Apps (Sub-paths mounted FIRST, root path mounted LAST)
 app = gr.mount_gradio_app(
     app, 
     card_demo, 
@@ -75,7 +98,6 @@ app = gr.mount_gradio_app(
     css=CARD_UI_CSS
 )
 
-# 2. Main translation demo accessible via /
 app = gr.mount_gradio_app(
     app, 
     demo, 

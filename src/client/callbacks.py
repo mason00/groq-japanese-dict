@@ -93,7 +93,18 @@ def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[...
             gr.Button("Next", interactive=index < count - 1),
         )
 
-    def load_cards() -> tuple[list[VocabularyCard], int, str, str, str, object, object]:
+    def initial_card_index(request: gr.Request | None, card_count: int) -> int:
+        if request is None:
+            return 0
+        query_params = getattr(request, "query_params", {})
+        position = next(iter(query_params), "")
+        try:
+            index = int(position) - 1
+        except (TypeError, ValueError):
+            return 0
+        return index if 0 <= index < card_count else 0
+
+    def load_cards(request: gr.Request | None = None) -> tuple[list[VocabularyCard], int, str, str, str, object, object]:
         try:
             cards = notion_client.list_vocabulary_cards()
         except Exception as error:
@@ -107,9 +118,10 @@ def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[...
             previous, next_card = navigation_updates(0, 0)
             return cards, 0, gr.Button(message, interactive=False), "", "0 / 0", previous, next_card
 
-        word, details = card_display(cards[0], revealed=False)
-        previous, next_card = navigation_updates(0, len(cards))
-        return cards, 0, gr.Button(word, interactive=True), details, f"1 / {len(cards)}", previous, next_card
+        index = initial_card_index(request, len(cards))
+        word, details = card_display(cards[index], revealed=False)
+        previous, next_card = navigation_updates(index, len(cards))
+        return cards, index, gr.Button(word, interactive=True), details, f"{index + 1} / {len(cards)}", previous, next_card
 
     def reveal_card(cards: list[VocabularyCard], index: int) -> str:
         if not cards:

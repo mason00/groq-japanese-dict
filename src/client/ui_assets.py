@@ -125,6 +125,28 @@ function() {
 """
 
 
+CARD_URL_SYNC_JS = """
+function() {
+    if (document.documentElement.dataset.cardUrlSyncBound === "true") return;
+    const counter = document.querySelector("#card-counter");
+    if (!counter) return;
+    document.documentElement.dataset.cardUrlSyncBound = "true";
+
+    const syncUrl = () => {
+        const position = Number.parseInt(counter.textContent, 10);
+        if (!Number.isInteger(position) || position < 1) return;
+        const query = `?${position}`;
+        if (window.location.search !== query) {
+            window.history.replaceState(null, "", `${window.location.pathname}${query}${window.location.hash}`);
+        }
+    };
+
+    new MutationObserver(syncUrl).observe(counter, { childList: true, characterData: true, subtree: true });
+    syncUrl();
+}
+"""
+
+
 CARD_UI_CSS = """
 #card-title {
     text-align: center;

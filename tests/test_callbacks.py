@@ -62,6 +62,38 @@ class CallbacksTests(unittest.TestCase):
         self.assertFalse(next_card.interactive)
         self.assertEqual(callbacks["next_card"](cards, index)[0], 1)
 
+    def test_card_callbacks_loads_requested_url_position(self) -> None:
+        notion_client = MagicMock()
+        notion_client.list_vocabulary_cards.return_value = [
+            VocabularyCard(f"word-{position}", "", "", "", "", "")
+            for position in range(1, 13)
+        ]
+        request = MagicMock()
+        request.query_params = {"12": ""}
+
+        _, index, word, details, counter, previous, next_card = create_card_callbacks(notion_client)["load_cards"](request)
+
+        self.assertEqual((index, word.value, details, counter), (11, "word-12", "", "12 / 12"))
+        self.assertTrue(previous.interactive)
+        self.assertFalse(next_card.interactive)
+
+    def test_card_callbacks_falls_back_to_first_card_for_invalid_url_position(self) -> None:
+        notion_client = MagicMock()
+        notion_client.list_vocabulary_cards.return_value = [
+            VocabularyCard("飲む", "のむ", "喝", "水を飲む。", "I drink.", "2026-02-01"),
+            VocabularyCard("食べる", "たべる", "吃", "ご飯を食べる。", "I eat.", "2026-01-01"),
+        ]
+        callbacks = create_card_callbacks(notion_client)
+
+        for position in ("abc", "0", "-1", "3"):
+            request = MagicMock()
+            request.query_params = {position: ""}
+            _, index, word, details, counter, previous, next_card = callbacks["load_cards"](request)
+
+            self.assertEqual((index, word.value, details, counter), (0, "飲む", "", "1 / 2"))
+            self.assertFalse(previous.interactive)
+            self.assertTrue(next_card.interactive)
+
     def test_card_callbacks_return_empty_state_after_load_failure(self) -> None:
         notion_client = MagicMock()
         notion_client.list_vocabulary_cards.side_effect = RuntimeError("missing configuration")
