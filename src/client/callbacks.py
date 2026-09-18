@@ -93,18 +93,26 @@ def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[...
             gr.Button("Next", interactive=index < count - 1),
         )
 
-    def initial_card_index(request: gr.Request | None, card_count: int) -> int:
-        if request is None:
-            return 0
-        query_params = getattr(request, "query_params", {})
-        position = next(iter(query_params), "")
-        try:
-            index = int(position) - 1
-        except (TypeError, ValueError):
-            return 0
-        return index if 0 <= index < card_count else 0
+    def card_updates(
+        cards: list[VocabularyCard], index: int
+    ) -> tuple[int, object, str, str, str, object, object]:
+        if not cards:
+            previous, next_card = navigation_updates(0, 0)
+            return 0, gr.Button("Notion 词汇库为空。", interactive=False), "", "0 / 0", "", previous, next_card
 
-    def load_cards(request: gr.Request | None = None) -> tuple[list[VocabularyCard], int, str, str, str, object, object]:
+        word, details = card_display(cards[index], revealed=False)
+        previous, next_card = navigation_updates(index, len(cards))
+        return (
+            index,
+            gr.Button(word, interactive=True),
+            details,
+            f"{index + 1} / {len(cards)}",
+            str(index + 1),
+            previous,
+            next_card,
+        )
+
+    def load_cards() -> tuple[list[VocabularyCard], int, object, str, str, str, object, object]:
         try:
             cards = notion_client.list_vocabulary_cards()
         except Exception as error:
@@ -116,12 +124,10 @@ def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[...
 
         if not cards:
             previous, next_card = navigation_updates(0, 0)
-            return cards, 0, gr.Button(message, interactive=False), "", "0 / 0", previous, next_card
+            return cards, 0, gr.Button(message, interactive=False), "", "0 / 0", "", previous, next_card
 
-        index = initial_card_index(request, len(cards))
-        word, details = card_display(cards[index], revealed=False)
-        previous, next_card = navigation_updates(index, len(cards))
-        return cards, index, gr.Button(word, interactive=True), details, f"{index + 1} / {len(cards)}", previous, next_card
+        index, word, details, counter, position, previous, next_card = card_updates(cards, 0)
+        return cards, index, word, details, counter, position, previous, next_card
 
     def reveal_card(cards: list[VocabularyCard], index: int) -> str:
         if not cards:
@@ -131,18 +137,29 @@ def create_card_callbacks(notion_client: NotionClient) -> dict[str, Callable[...
 
     def change_card(
         cards: list[VocabularyCard], index: int, direction: int
-    ) -> tuple[int, str, str, str, object, object]:
+    ) -> tuple[int, object, str, str, str, object, object]:
         if not cards:
-            previous, next_card = navigation_updates(0, 0)
-            return 0, gr.Button("Notion 词汇库为空。", interactive=False), "", "0 / 0", previous, next_card
+            return card_updates(cards, 0)
         next_index = min(max(index + direction, 0), len(cards) - 1)
-        word, details = card_display(cards[next_index], revealed=False)
-        previous, next_card = navigation_updates(next_index, len(cards))
-        return next_index, gr.Button(word, interactive=True), details, f"{next_index + 1} / {len(cards)}", previous, next_card
+        return card_updates(cards, next_index)
+
+    def go_to_card(
+        cards: list[VocabularyCard], index: int, position: str
+    ) -> tuple[int, object, str, str, str, object, object]:
+        if not cards:
+            return card_updates(cards, 0)
+        try:
+            requested_position = int(position)
+        except (TypeError, ValueError):
+            return card_updates(cards, index)
+        if not 1 <= requested_position <= len(cards):
+            return card_updates(cards, index)
+        return card_updates(cards, requested_position - 1)
 
     return {
         "load_cards": load_cards,
         "reveal_card": reveal_card,
         "previous_card": lambda cards, index: change_card(cards, index, -1),
         "next_card": lambda cards, index: change_card(cards, index, 1),
+        "go_to_card": go_to_card,
     }

@@ -48,36 +48,35 @@ class CallbacksTests(unittest.TestCase):
         ]
         callbacks = create_card_callbacks(notion_client)
 
-        cards, index, word, details, counter, previous, next_card = callbacks["load_cards"]()
+        cards, index, word, details, counter, position, previous, next_card = callbacks["load_cards"]()
 
-        self.assertEqual((index, word.value, details, counter), (0, "飲む", "", "1 / 2"))
+        self.assertEqual((index, word.value, details, counter, position), (0, "飲む", "", "1 / 2", "1"))
         self.assertFalse(previous.interactive)
         self.assertTrue(next_card.interactive)
         self.assertIn("**读音**\nのむ", callbacks["reveal_card"](cards, index))
 
-        index, word, details, counter, previous, next_card = callbacks["next_card"](cards, index)
+        index, word, details, counter, position, previous, next_card = callbacks["next_card"](cards, index)
 
-        self.assertEqual((index, word.value, details, counter), (1, "食べる", "", "2 / 2"))
+        self.assertEqual((index, word.value, details, counter, position), (1, "食べる", "", "2 / 2", "2"))
         self.assertTrue(previous.interactive)
         self.assertFalse(next_card.interactive)
         self.assertEqual(callbacks["next_card"](cards, index)[0], 1)
 
-    def test_card_callbacks_loads_requested_url_position(self) -> None:
+    def test_card_callbacks_goes_to_requested_position(self) -> None:
         notion_client = MagicMock()
         notion_client.list_vocabulary_cards.return_value = [
             VocabularyCard(f"word-{position}", "", "", "", "", "")
             for position in range(1, 13)
         ]
-        request = MagicMock()
-        request.query_params = {"12": ""}
+        callbacks = create_card_callbacks(notion_client)
+        cards, index, *_ = callbacks["load_cards"]()
+        index, word, details, counter, position, previous, next_card = callbacks["go_to_card"](cards, index, "12")
 
-        _, index, word, details, counter, previous, next_card = create_card_callbacks(notion_client)["load_cards"](request)
-
-        self.assertEqual((index, word.value, details, counter), (11, "word-12", "", "12 / 12"))
+        self.assertEqual((index, word.value, details, counter, position), (11, "word-12", "", "12 / 12", "12"))
         self.assertTrue(previous.interactive)
         self.assertFalse(next_card.interactive)
 
-    def test_card_callbacks_falls_back_to_first_card_for_invalid_url_position(self) -> None:
+    def test_card_callbacks_keeps_current_card_for_invalid_position(self) -> None:
         notion_client = MagicMock()
         notion_client.list_vocabulary_cards.return_value = [
             VocabularyCard("飲む", "のむ", "喝", "水を飲む。", "I drink.", "2026-02-01"),
@@ -85,22 +84,23 @@ class CallbacksTests(unittest.TestCase):
         ]
         callbacks = create_card_callbacks(notion_client)
 
-        for position in ("abc", "0", "-1", "3"):
-            request = MagicMock()
-            request.query_params = {position: ""}
-            _, index, word, details, counter, previous, next_card = callbacks["load_cards"](request)
+        cards, index, *_ = callbacks["load_cards"]()
+        index, *_ = callbacks["next_card"](cards, index)
 
-            self.assertEqual((index, word.value, details, counter), (0, "飲む", "", "1 / 2"))
-            self.assertFalse(previous.interactive)
-            self.assertTrue(next_card.interactive)
+        for position in ("", "abc", "0", "-1", "3", "1.5"):
+            index, word, details, counter, page_position, previous, next_card = callbacks["go_to_card"](cards, index, position)
+
+            self.assertEqual((index, word.value, details, counter, page_position), (1, "食べる", "", "2 / 2", "2"))
+            self.assertTrue(previous.interactive)
+            self.assertFalse(next_card.interactive)
 
     def test_card_callbacks_return_empty_state_after_load_failure(self) -> None:
         notion_client = MagicMock()
         notion_client.list_vocabulary_cards.side_effect = RuntimeError("missing configuration")
 
-        _, index, word, details, counter, previous, next_card = create_card_callbacks(notion_client)["load_cards"]()
+        _, index, word, details, counter, position, previous, next_card = create_card_callbacks(notion_client)["load_cards"]()
 
-        self.assertEqual((index, word.value, details, counter), (0, "无法读取 Notion 词汇库。", "", "0 / 0"))
+        self.assertEqual((index, word.value, details, counter, position), (0, "无法读取 Notion 词汇库。", "", "0 / 0", ""))
         self.assertFalse(previous.interactive)
         self.assertFalse(next_card.interactive)
 
