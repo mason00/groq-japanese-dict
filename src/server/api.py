@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .notion_client import NotionClient
@@ -34,6 +39,18 @@ app = FastAPI(
     description="使用统一 LLM 客户端生成带振假名日语和中文翻译。",
 )
 notion_client = NotionClient()
+frontend_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGINS", "*").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=frontend_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -65,3 +82,8 @@ def cards() -> list[CardResponse]:
         )
         for card in notion_client.list_vocabulary_cards()
     ]
+
+
+frontend_path = Path(__file__).resolve().parents[1] / "react" / "dist"
+if frontend_path.is_dir():
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")

@@ -3,6 +3,10 @@
 venv/
 env/
 
+# React client build output
+src/react/node_modules/
+src/react/dist/
+
 # Python bytecode and caches
 __pycache__/
 src/client/__pycache__/
