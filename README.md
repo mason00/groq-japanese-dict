@@ -20,3 +20,7 @@ Configure `GROQ_API_KEY` in the Space Settings under **Secrets**.
 Set `NOTION_TOKEN` and `NOTION_DATABASE_ID` to enable vocabulary cards; the integration must have access to that database.
 
 Optional LangSmith variables can also be configured in Space Secrets.
+
+[render: https://groq-japanese-dict.onrender.com/](https://groq-japanese-dict.onrender.com/)
+
+[hugging face: https://mason00-groq-japanese-dict.hf.space](https://mason00-groq-japanese-dict.hf.space)
