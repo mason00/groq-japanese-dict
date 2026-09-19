@@ -78,6 +78,10 @@ export default function CardView() {
       window.history.replaceState(null, "", url.toString());
     }
 
+    const revealTimer = window.setTimeout(() => {
+      if (active) setRevealed(true);
+    }, 5000);
+
     const windowStart = Math.floor((num - 1) / CARD_WINDOW_SIZE) * CARD_WINDOW_SIZE;
     const cachedCard = cardsCache.current.get(num);
     const windowPromise = cachedCard ? Promise.resolve([]) : loadWindow(windowStart);
@@ -117,6 +121,7 @@ export default function CardView() {
 
     return () => {
       active = false;
+      window.clearTimeout(revealTimer);
     };
   }, [num]);
 

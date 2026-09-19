@@ -107,6 +107,27 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(second_word.surface, "を")
         self.assertEqual(second_word.grammar_note, "助詞")
 
+    def test_merge_ignores_placeholder_definition_and_uses_glosses(self) -> None:
+        mock_json = """
+        {
+            "translation": "学习日语。",
+            "japanese_with_furigana": "日本語（にほんご）を勉強（べんきょう）します。",
+            "structure_anchor": "核心谓语：勉強します",
+            "word_explanations": [
+                {"id": 1, "definition": "无", "grammar_note": "名詞"}
+            ]
+        }
+        """
+        local_morphemes = [
+            self.pipeline._extract_morphemes("日本語")[0][0],
+        ]
+        local_morphemes[0].glosses = ["Japanese language", "language"]
+
+        result = self.pipeline._merge_results(mock_json, local_morphemes)
+
+        self.assertEqual(result.words_lemmatized[0].definition, "Japanese language; language")
+        self.assertEqual(result.words_lemmatized[0].meaning, "Japanese language; language")
+
 
 if __name__ == "__main__":
     unittest.main()

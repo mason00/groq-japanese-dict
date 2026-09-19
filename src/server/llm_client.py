@@ -121,6 +121,7 @@ class GroqClient(LLMClient):
     def complete(self, text: str, system_prompt: str) -> LLMResponse:
         response = self._with_retry(self._request_once, text, system_prompt)
         content = response.choices[0].message.content or ""
+        print("[LLM Content]", content)
         usage = response.usage
         prompt_tokens = getattr(usage, "prompt_tokens", 0) or self.token_counter.count(
             system_prompt + text

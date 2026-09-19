@@ -202,18 +202,18 @@ export default function TranslateView() {
             </div>
             <div className="word-list">
               {result.words_lemmatized.map((word, idx) => (
-                <article className="word-row" key={`${word.word || word.surface}-${idx}`} onClick={() => handleSaveWord(word, idx)}>
-                  <strong>{word.word || word.surface}</strong>
+                <article className="word-row" key={`${word.surface}-${idx}`} onClick={() => handleSaveWord(word, idx)}>
+                  <strong>{word.surface}</strong>
                   <span>{word.reading}</span>
                   <div>
                     <b>{word.dictionary_form}</b>
                   </div>
-                  <small>{word.grammar_note}</small>
-                  {saveResults[`${word.word || word.surface}-${idx}`] && (
+                  <small>{word.definition}</small>
+                  {saveResults[`${word.surface}-${idx}`] && (
                     <p className="save-result">
-                      {saveResults[`${word.word || word.surface}-${idx}`].status}
-                      {saveResults[`${word.word || word.surface}-${idx}`].message
-                        ? `: ${saveResults[`${word.word || word.surface}-${idx}`].message}`
+                      {saveResults[`${word.surface}-${idx}`].status}
+                      {saveResults[`${word.surface}-${idx}`].message
+                        ? `: ${saveResults[`${word.surface}-${idx}`].message}`
                         : ""}
                     </p>
                   )}

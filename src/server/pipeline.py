@@ -250,13 +250,23 @@ class JapanesePipeline:
         explanation_by_id = {item.id: item for item in raw.word_explanations}
         words_lemmatized: list[LemmatizedWord] = []
 
+        def _sanitize_definition(value: str | None) -> str | None:
+            if value is None:
+                return None
+            cleaned = value.strip()
+            if not cleaned:
+                return None
+            normalized = cleaned.lower()
+            if normalized in {"无", "none", "null", "n/a", "na", "unknown"}:
+                return None
+            return cleaned
+
         for m in local_morphemes:
             exp = explanation_by_id.get(m.id)
-            if exp and exp.definition.strip():
-                definition = exp.definition.strip()
-            elif m.glosses:
+            definition = _sanitize_definition(exp.definition if exp else None)
+            if definition is None and m.glosses:
                 definition = "; ".join(m.glosses)
-            else:
+            elif definition is None:
                 definition = "无"
 
             if exp and exp.grammar_note.strip():
