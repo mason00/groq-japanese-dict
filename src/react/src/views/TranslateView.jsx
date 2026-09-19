@@ -7,6 +7,7 @@ export default function TranslateView() {
   const [status, setStatus] = useState({ type: "idle", message: "" });
   const [autoPaste, setAutoPaste] = useState(true);
   const [saveResults, setSaveResults] = useState({});
+  const [selectedWordKeys, setSelectedWordKeys] = useState({});
 
   const lastPastedTextRef = useRef("");
   const isTranslatingRef = useRef(false);
@@ -71,12 +72,13 @@ export default function TranslateView() {
   }
 
   async function handleSaveWord(word, idx) {
-    const key = `${word.word || word.surface}-${idx}`;
+    const key = `${word.surface}-${idx}`;
+    setSelectedWordKeys((prev) => ({ ...prev, [key]: true }));
     try {
       const response = await request("/save_word", {
         method: "POST",
         body: JSON.stringify({
-          surface: word.surface || word.word,
+          surface: word.surface,
           dictionary_form: word.dictionary_form,
           reading: word.reading,
           definition: word.meaning || word.definition,
@@ -201,24 +203,31 @@ export default function TranslateView() {
               词汇拆解 <span>{result.words_lemmatized.length} 个词条</span>
             </div>
             <div className="word-list">
-              {result.words_lemmatized.map((word, idx) => (
-                <article className="word-row" key={`${word.surface}-${idx}`} onClick={() => handleSaveWord(word, idx)}>
+              {result.words_lemmatized.map((word, idx) => {
+                const wordKey = `${word.surface}-${idx}`;
+                return (
+                <article
+                  className={`word-row${selectedWordKeys[wordKey] ? " selected" : ""}`}
+                  key={wordKey}
+                  onClick={() => handleSaveWord(word, idx)}
+                >
                   <strong>{word.surface}</strong>
                   <span>{word.reading}</span>
                   <div>
                     <b>{word.dictionary_form}</b>
                   </div>
                   <small>{word.definition}</small>
-                  {saveResults[`${word.surface}-${idx}`] && (
+                  {saveResults[wordKey] && (
                     <p className="save-result">
-                      {saveResults[`${word.surface}-${idx}`].status}
-                      {saveResults[`${word.surface}-${idx}`].message
-                        ? `: ${saveResults[`${word.surface}-${idx}`].message}`
+                      {saveResults[wordKey].status}
+                      {saveResults[wordKey].message
+                        ? `: ${saveResults[wordKey].message}`
                         : ""}
                     </p>
                   )}
                 </article>
-              ))}
+                );
+              })}
               {!result.words_lemmatized.length && <p className="empty-copy">这句话没有可拆解的词条。</p>}
             </div>
           </section>

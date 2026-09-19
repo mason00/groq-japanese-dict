@@ -66,7 +66,8 @@ h1 { max-width: 660px; margin: 13px 0 0; font-family: "Noto Serif JP", serif; fo
 .structure { border-top: 1px solid var(--line); }
 .structure p { margin: 9px 0 0; color: var(--muted); line-height: 1.6; }
 .word-list { margin-top: 25px; }
-.word-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr 1.3fr; gap: 11px; align-items: start; padding: 15px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.word-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr 1.3fr; gap: 11px; align-items: start; padding: 15px 0; border-top: 1px solid var(--line); font-size: 13px; cursor: pointer; transition: background-color .18s ease, box-shadow .18s ease; }
+.word-row.selected { background: rgba(183,73,62,.09); box-shadow: inset 3px 0 0 var(--red); }
 .word-row strong { font-family: "Noto Serif JP", serif; font-size: 16px; }
 .word-row > span, .word-row small { color: var(--muted); }
 .word-row b { font-weight: 600; }
