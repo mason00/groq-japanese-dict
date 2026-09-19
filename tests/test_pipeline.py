@@ -38,11 +38,29 @@ class PipelineTests(unittest.TestCase):
     def test_format_prompt_contains_reference_and_text(self) -> None:
         sentence = "日本語を勉強します。"
         _, ref = self.pipeline._extract_morphemes(sentence)
-        prompt = self.pipeline._format_prompt(sentence, ref)
+        system_prompt = self.pipeline._format_prompt()
+        user_prompt = self.pipeline._format_user_prompt(sentence, ref)
 
-        self.assertIn("[本地词汇与JMdict参考]", prompt)
-        self.assertIn("用户输入的日文：日本語を勉強します。", prompt)
-        self.assertIn("word_explanations", prompt)
+        self.assertNotIn("1. 表面:", system_prompt)
+        self.assertIn("[本地词汇与JMdict参考]", user_prompt)
+        self.assertIn("用户输入的日文：日本語を勉強します。", user_prompt)
+        self.assertIn("word_explanations", system_prompt)
+
+    def test_process_sends_reference_in_user_prompt(self) -> None:
+        self.mock_llm.complete.return_value = LLMResponse(
+            content='{"translation":"学习日语。","japanese_with_furigana":"日本語（にほんご）を勉強します。","structure_anchor":"核心谓语：勉強します","word_explanations":[]}',
+            prompt_tokens=100,
+            completion_tokens=30,
+            total_tokens=130,
+        )
+
+        self.pipeline.process("日本語を勉強します。")
+
+        user_prompt, system_prompt = self.mock_llm.complete.call_args.args
+        self.assertIn("[本地词汇与JMdict参考]", user_prompt)
+        self.assertIn("JMdict英文参考:", user_prompt)
+        self.assertIn("用户输入的日文：日本語を勉強します。", user_prompt)
+        self.assertNotIn("1. 表面:", system_prompt)
 
     def test_process_with_mock_llm_and_merge(self) -> None:
         mock_json = """

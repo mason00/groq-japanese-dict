@@ -208,7 +208,12 @@ class JapanesePipeline:
             )
             .assign(
                 system_prompt=RunnableLambda(
-                    lambda data: self._format_prompt(
+                    lambda data: self._format_prompt()
+                ),
+            )
+            .assign(
+                user_prompt=RunnableLambda(
+                    lambda data: self._format_user_prompt(
                         data["text"], data["morphemes_data"][1]
                     )
                 ),
@@ -216,7 +221,7 @@ class JapanesePipeline:
             .assign(
                 response=RunnableLambda(
                     lambda data: self._invoke_llm(
-                        data["text"], data["system_prompt"]
+                        data["user_prompt"], data["system_prompt"]
                     )
                 ),
             )
@@ -229,12 +234,12 @@ class JapanesePipeline:
             )
         )
 
-    def _format_prompt(self, text: str, morphemes_ref: str) -> str:
-        prompt = self._prompt_manager.get_system_prompt(text)
-        # Prompt files contain JSON braces; escape them before PromptTemplate parses them.
-        template = prompt.replace("{", "{{").replace("}", "}}")
+    def _format_prompt(self) -> str:
+        return self._prompt_manager.get_system_prompt()
+
+    def _format_user_prompt(self, text: str, morphemes_ref: str) -> str:
         return PromptTemplate.from_template(
-            f"{template}\n\n[本地词汇与JMdict参考]：\n{{morphemes_ref}}\n\n用户输入的日文：{{text}}"
+            "[本地词汇与JMdict参考]：\n{morphemes_ref}\n\n用户输入的日文：{text}"
         ).format(text=text, morphemes_ref=morphemes_ref)
 
     def _merge_results(
