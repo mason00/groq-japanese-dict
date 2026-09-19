@@ -50,6 +50,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         list_mock.assert_called_once_with(limit=2)
 
+    def test_card_supports_offset_query_param(self) -> None:
+        cards = [VocabularyCard("食べる", "たべる", "吃", "", "eat", "2026-02-02")]
+        with patch("src.server.api.notion_client.list_vocabulary_cards", return_value=cards) as list_mock:
+            response = TestClient(app).get("/card?offset=20&limit=10")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]["word"], "食べる")
+        list_mock.assert_called_once_with(limit=10, offset=20)
+
     def test_translate_delegates_to_service(self) -> None:
         result = MagicMock(
             translation="I drink.",

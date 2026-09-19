@@ -120,8 +120,13 @@ def _extract_limit(request: Request, limit: int | None = None) -> int | None:
 def cards(
     request: Request,
     limit: int | None = Query(default=None, description="获取卡片数量"),
+    offset: int = Query(default=0, ge=0, description="跳过前面的卡片数量"),
 ) -> list[CardResponse]:
     target_limit = _extract_limit(request, limit)
+    if offset:
+        cards = notion_client.list_vocabulary_cards(limit=target_limit, offset=offset)
+    else:
+        cards = notion_client.list_vocabulary_cards(limit=target_limit)
     return [
         CardResponse(
             word=card.word,
@@ -131,7 +136,7 @@ def cards(
             translation=card.translation,
             created_time=card.created_time,
         )
-        for card in notion_client.list_vocabulary_cards(limit=target_limit)
+        for card in cards
     ]
 
 

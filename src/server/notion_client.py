@@ -85,17 +85,25 @@ class NotionClient:
         _log(f"create succeeded: {word_key}")
         return NotionSaveResult("added")
 
-    def list_vocabulary_cards(self, limit: int | None = None) -> list[VocabularyCard]:
+    def list_vocabulary_cards(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[VocabularyCard]:
         if not self.configured:
             raise RuntimeError("未配置 NOTION_TOKEN 或 NOTION_DATABASE_ID")
 
         if limit is not None and limit <= 0:
             return []
+        if offset < 0:
+            raise ValueError("offset 不能小于 0")
 
         cards: list[VocabularyCard] = []
         start_cursor: str | None = None
+        skipped = 0
         while True:
-            page_size = 100 if limit is None else max(1, min(limit - len(cards), 100))
+            remaining = None if limit is None else offset + limit - skipped - len(cards)
+            page_size = 100 if remaining is None else max(1, min(remaining, 100))
             payload: dict[str, object] = {"page_size": page_size}
             if start_cursor:
                 payload["start_cursor"] = start_cursor
@@ -107,7 +115,12 @@ class NotionClient:
             )
             response.raise_for_status()
             data = response.json()
-            cards.extend(self._card_from_page(page) for page in data.get("results", []))
+            page_cards = [self._card_from_page(page) for page in data.get("results", [])]
+            if skipped < offset:
+                skip_count = min(offset - skipped, len(page_cards))
+                skipped += skip_count
+                page_cards = page_cards[skip_count:]
+            cards.extend(page_cards)
             if limit is not None and len(cards) >= limit:
                 break
             if not data.get("has_more"):
@@ -118,7 +131,7 @@ class NotionClient:
 
         if limit is None:
             return sorted(cards, key=lambda card: card.created_time, reverse=True)
-        return cards[:limit]
+        return cards[:limit] if limit is not None else cards
 
     def _exists(self, word: AnkiWord) -> bool:
         _log(

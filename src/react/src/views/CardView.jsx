@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { request } from "../lib/api";
 
+const CARD_WINDOW_SIZE = 20;
+const PREFETCH_THRESHOLD = 5;
+
 function getInitialCardNum() {
   if (typeof window !== "undefined") {
     const search = window.location.search;
@@ -25,7 +28,37 @@ export default function CardView() {
   const [revealed, setRevealed] = useState(false);
   const [hasNext, setHasNext] = useState(true);
   const [status, setStatus] = useState({ type: "loading", message: "正在读取词汇库..." });
-  const cardsCache = useRef({});
+  const cardsCache = useRef(new Map());
+  const windowRequests = useRef(new Map());
+  const loadedWindows = useRef(new Set());
+  const endIndex = useRef(null);
+
+  const loadWindow = (windowStart) => {
+    if (loadedWindows.current.has(windowStart)) return Promise.resolve(null);
+    if (windowRequests.current.has(windowStart)) {
+      return windowRequests.current.get(windowStart);
+    }
+
+    const requestPromise = request(`/card?offset=${windowStart}&limit=${CARD_WINDOW_SIZE}`)
+      .then((data) => {
+        if (!Array.isArray(data)) return [];
+
+        loadedWindows.current.add(windowStart);
+        data.forEach((item, index) => {
+          cardsCache.current.set(windowStart + index + 1, item);
+        });
+        if (data.length < CARD_WINDOW_SIZE) {
+          endIndex.current = windowStart + data.length;
+        }
+        return data;
+      })
+      .finally(() => {
+        windowRequests.current.delete(windowStart);
+      });
+
+    windowRequests.current.set(windowStart, requestPromise);
+    return requestPromise;
+  };
 
   useEffect(() => {
     const onPopState = () => {
@@ -45,38 +78,37 @@ export default function CardView() {
       window.history.replaceState(null, "", url.toString());
     }
 
-    if (cardsCache.current[num]) {
-      setCard(cardsCache.current[num]);
-      setStatus({ type: "success", message: "" });
-      return;
+    const windowStart = Math.floor((num - 1) / CARD_WINDOW_SIZE) * CARD_WINDOW_SIZE;
+    const cachedCard = cardsCache.current.get(num);
+    const windowPromise = cachedCard ? Promise.resolve([]) : loadWindow(windowStart);
+
+    if (!cachedCard) {
+      setStatus({ type: "loading", message: `正在读取第 ${num} 张词汇卡...` });
     }
 
-    setStatus({ type: "loading", message: `正在读取第 ${num} 张词汇卡...` });
-    request(`/card?${num}`)
+    windowPromise
       .then((data) => {
         if (!active) return;
-        if (!Array.isArray(data) || data.length === 0) {
+        const currentCard = cardsCache.current.get(num);
+        if (!currentCard) {
           setCard(null);
           setHasNext(false);
           setStatus({ type: "empty", message: "Notion 词汇库为空。" });
           return;
         }
 
-        data.forEach((item, idx) => {
-          cardsCache.current[idx + 1] = item;
-        });
-
-        if (data.length < num) {
-          setCard(data[data.length - 1]);
-          setNum(data.length);
-          setHasNext(false);
-          setStatus({ type: "success", message: "" });
-          return;
-        }
-
-        setCard(data[num - 1]);
-        setHasNext(true);
+        setCard(currentCard);
+        setHasNext(endIndex.current === null || num + 1 <= endIndex.current);
         setStatus({ type: "success", message: "" });
+
+        const isNearWindowEnd = num >= windowStart + CARD_WINDOW_SIZE - PREFETCH_THRESHOLD;
+        if (isNearWindowEnd && (endIndex.current === null || num + 1 <= endIndex.current)) {
+          loadWindow(windowStart + CARD_WINDOW_SIZE).then((nextData) => {
+            if (active && nextData && nextData.length === 0) setHasNext(false);
+          }).catch(() => {
+            // Keep the current card usable if background prefetch fails.
+          });
+        }
       })
       .catch((error) => {
         if (!active) return;
