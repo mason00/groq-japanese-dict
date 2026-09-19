@@ -28,12 +28,11 @@ button { cursor: pointer; }
 .view-switcher button, .card-navigation button { border: 0; background: transparent; color: var(--muted); padding: 9px 17px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .view-switcher button.active { color: #fffaf0; background: var(--ink); }
 .connection-dot { color: #6c9f73; font-size: 13px; }
-.workspace { width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding: 78px 0 54px; flex: 1; }
+.workspace { width: min(1180px, calc(100% - 64px)); margin: 0 auto; padding: 0 0 54px; flex: 1; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 45px; }
 .eyebrow, .panel-label, .structure span, .detail-grid span { color: var(--red); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 h1 { max-width: 660px; margin: 13px 0 0; font-family: "Noto Serif JP", serif; font-size: clamp(31px, 4.6vw, 58px); line-height: 1.18; letter-spacing: 0; font-weight: 600; }
 .api-chip { color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 9px 13px; font-size: 11px; letter-spacing: .08em; white-space: nowrap; }
-.translate-form { margin-bottom: 54px; }
 .translate-form label { display: block; color: var(--muted); margin-bottom: 12px; font-size: 12px; font-weight: 600; }
 .input-row { display: flex; gap: 10px; }
 .input-row input { min-width: 0; flex: 1; border: 0; border-bottom: 2px solid var(--ink); padding: 16px 0; color: var(--ink); background: transparent; outline: 0; font-family: "Noto Serif JP", serif; font-size: 22px; }
@@ -41,17 +40,23 @@ h1 { max-width: 660px; margin: 13px 0 0; font-family: "Noto Serif JP", serif; fo
 .primary-button { display: inline-flex; align-items: center; gap: 15px; border: 0; padding: 0 23px; color: #fff9ed; background: var(--red); font-weight: 700; transition: background .2s, transform .2s; }
 .primary-button:hover { background: var(--red-dark); transform: translateY(-2px); }
 .primary-button:disabled { opacity: .6; cursor: wait; transform: none; }
-.status { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.secondary-button { display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--line); padding: 0 18px; color: var(--ink); background: rgba(255,253,248,.85); font-weight: 600; font-size: 14px; transition: background .2s, border-color .2s, transform .2s; white-space: nowrap; }
+.secondary-button:hover { background: #fffdf8; border-color: var(--ink); transform: translateY(-2px); }
+.secondary-button:disabled { opacity: .6; cursor: wait; transform: none; }
+.form-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.auto-paste-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; cursor: pointer; user-select: none; }
+.auto-paste-toggle input { accent-color: var(--red); cursor: pointer; margin: 0; }
+.status { margin: 0; color: var(--muted); font-size: 12px; }
 .status.error { color: var(--red-dark); }
 .status.success { color: #608568; }
-.translation-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 18px; }
-.result-panel { min-height: 330px; padding: 28px; border: 1px solid var(--line); background: rgba(255,253,248,.66); }
+.translation-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.result-panel { padding: 14px; border: 1px solid var(--line); background: rgba(255,253,248,.66); }
 .feature-panel { display: flex; flex-direction: column; }
 .panel-label { display: flex; justify-content: space-between; margin-bottom: auto; }
 .panel-label span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; }
-.furigana { margin: 70px 0 18px; font-family: "Noto Serif JP", serif; font-size: clamp(24px, 3.5vw, 42px); line-height: 1.4; }
-.translation { margin: 0; font-size: 18px; line-height: 1.65; }
-.structure { margin-top: 44px; padding-top: 15px; border-top: 1px solid var(--line); }
+.furigana { font-family: "Noto Serif JP", serif; line-height: 1.4; }
+.translation { margin: 0 0 16px 0; font-size: 18px; line-height: 1.65; }
+.structure { border-top: 1px solid var(--line); }
 .structure p { margin: 9px 0 0; color: var(--muted); line-height: 1.6; }
 .word-list { margin-top: 25px; }
 .word-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr 1.3fr; gap: 11px; align-items: start; padding: 15px 0; border-top: 1px solid var(--line); font-size: 13px; }
@@ -89,7 +94,7 @@ footer span { float: right; letter-spacing: .14em; }
   .section-heading { align-items: flex-start; flex-direction: column; margin-bottom: 32px; }
   .api-chip { align-self: flex-start; }
   .input-row { flex-direction: column; }
-  .primary-button { min-height: 48px; justify-content: space-between; }
+  .primary-button, .secondary-button { min-height: 48px; justify-content: space-between; }
   .translation-grid { grid-template-columns: 1fr; }
   .result-panel { min-height: auto; }
   .furigana { margin-top: 48px; }

@@ -5,7 +5,7 @@ from jamdict import Jamdict
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langsmith import traceable
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from sudachipy import dictionary
 from sudachipy.tokenizer import Tokenizer
 
@@ -55,11 +55,37 @@ class RawLLMResponse(BaseModel):
 
 
 class LemmatizedWord(BaseModel):
-    surface: str = Field(min_length=1)
-    dictionary_form: str = Field(min_length=1)
+    word: str = Field(min_length=1)
     reading: str = Field(min_length=1)
-    definition: str = Field(min_length=1)
-    grammar_note: str = Field(min_length=1)
+    meaning: str = Field(min_length=1)
+    example: str = Field(default="")
+    translation: str = Field(default="")
+    surface: str | None = None
+    dictionary_form: str | None = None
+    definition: str | None = None
+    grammar_note: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "word" not in data and "dictionary_form" in data:
+                data["word"] = data["dictionary_form"]
+            if "dictionary_form" not in data and "word" in data:
+                data["dictionary_form"] = data["word"]
+            if "surface" not in data and "word" in data:
+                data["surface"] = data["word"]
+            if "meaning" not in data and "definition" in data:
+                data["meaning"] = data["definition"]
+            if "definition" not in data and "meaning" in data:
+                data["definition"] = data["meaning"]
+            if "example" not in data and "grammar_note" in data:
+                data["example"] = data["grammar_note"]
+            if "grammar_note" not in data and "example" in data:
+                data["grammar_note"] = data["example"]
+            if "translation" not in data:
+                data["translation"] = ""
+        return data
 
 
 class TranslationResponse(BaseModel):
@@ -240,9 +266,13 @@ class JapanesePipeline:
 
             words_lemmatized.append(
                 LemmatizedWord(
+                    word=m.dictionary_form,
+                    reading=m.reading,
+                    meaning=definition,
+                    example=raw.japanese_with_furigana.strip(),
+                    translation=raw.translation.strip(),
                     surface=m.surface,
                     dictionary_form=m.dictionary_form,
-                    reading=m.reading,
                     definition=definition,
                     grammar_note=grammar_note,
                 )

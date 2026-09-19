@@ -85,14 +85,18 @@ class NotionClient:
         _log(f"create succeeded: {word_key}")
         return NotionSaveResult("added")
 
-    def list_vocabulary_cards(self) -> list[VocabularyCard]:
+    def list_vocabulary_cards(self, limit: int | None = None) -> list[VocabularyCard]:
         if not self.configured:
             raise RuntimeError("未配置 NOTION_TOKEN 或 NOTION_DATABASE_ID")
+
+        if limit is not None and limit <= 0:
+            return []
 
         cards: list[VocabularyCard] = []
         start_cursor: str | None = None
         while True:
-            payload: dict[str, object] = {"page_size": 100}
+            page_size = 100 if limit is None else max(1, min(limit - len(cards), 100))
+            payload: dict[str, object] = {"page_size": page_size}
             if start_cursor:
                 payload["start_cursor"] = start_cursor
             response = httpx.post(
@@ -104,13 +108,17 @@ class NotionClient:
             response.raise_for_status()
             data = response.json()
             cards.extend(self._card_from_page(page) for page in data.get("results", []))
+            if limit is not None and len(cards) >= limit:
+                break
             if not data.get("has_more"):
                 break
             start_cursor = data.get("next_cursor")
             if not start_cursor:
                 break
 
-        return sorted(cards, key=lambda card: card.created_time, reverse=True)
+        if limit is None:
+            return sorted(cards, key=lambda card: card.created_time, reverse=True)
+        return cards[:limit]
 
     def _exists(self, word: AnkiWord) -> bool:
         _log(

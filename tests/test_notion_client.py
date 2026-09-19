@@ -86,6 +86,40 @@ class NotionClientTests(unittest.TestCase):
             {"page_size": 100, "start_cursor": "next-page"},
         )
 
+    @patch("src.server.notion_client.httpx.post")
+    def test_lists_vocabulary_cards_with_limit(self, post: MagicMock) -> None:
+        response = MagicMock()
+        response.json.return_value = {
+            "results": [
+                {
+                    "created_time": "2026-02-01T00:00:00.000Z",
+                    "properties": {
+                        "Word": {"title": [{"plain_text": "飲む"}]},
+                        "Reading": {"rich_text": [{"plain_text": "のむ"}]},
+                        "Meaning": {"rich_text": [{"plain_text": "喝"}]},
+                        "Example": {"rich_text": []},
+                        "Translation": {"rich_text": [{"plain_text": "I drink."}]},
+                    },
+                }
+            ],
+            "has_more": True,
+            "next_cursor": "next-page",
+        }
+        post.return_value = response
+
+        cards = self.client.list_vocabulary_cards(limit=1)
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].word, "飲む")
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(post.call_args.kwargs["json"], {"page_size": 1})
+
+    @patch("src.server.notion_client.httpx.post")
+    def test_lists_vocabulary_cards_zero_limit(self, post: MagicMock) -> None:
+        cards = self.client.list_vocabulary_cards(limit=0)
+        self.assertEqual(cards, [])
+        self.assertEqual(post.call_count, 0)
+
     def test_lists_vocabulary_cards_requires_configuration(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "NOTION_TOKEN"):
             NotionClient().list_vocabulary_cards()

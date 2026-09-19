@@ -3,10 +3,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from .anki_export import AnkiWord
 
 from .notion_client import NotionClient
 from .pipeline import LemmatizedWord
@@ -67,10 +68,60 @@ def translate(request: TranslateRequest) -> TranslateResponse:
         structure_anchor=result.structure_anchor,
         words_lemmatized=result.words_lemmatized,
     )
+class SaveWordRequest(BaseModel):
+    surface: str = Field(..., description="原形")
+    dictionary_form: str = Field(..., description="词典形")
+    reading: str = Field(..., description="假名")
+    definition: str = Field(..., description="定义")
+    grammar_note: str = Field(..., description="例句")
+    translation: str = ""
+
+class SaveWordResponse(BaseModel):
+    status: str
+    message: str = ""
+
+@app.post("/save_word", response_model=SaveWordResponse)
+def save_word(request: SaveWordRequest) -> SaveWordResponse:
+    anki_word = AnkiWord(
+        surface=request.surface,
+        dictionary_form=request.dictionary_form,
+        reading=request.reading,
+        definition=request.definition,
+        grammar_note=request.grammar_note,
+        translation=request.translation,
+    )
+    result = notion_client.save_word(anki_word)
+    return SaveWordResponse(status=result.status, message=result.message)
+
+
+def _extract_limit(request: Request, limit: int | None = None) -> int | None:
+    if limit is not None:
+        return limit
+    for key, value in request.query_params.items():
+        key_lower = key.lower()
+        if key_lower in ("count", "n", "page_size", "size", "limit"):
+            try:
+                return int(value)
+            except ValueError:
+                pass
+        if key_lower in ("first", "one"):
+            return 1
+        if key.isdigit():
+            return int(key)
+    query = request.url.query.strip().lower()
+    if query.isdigit():
+        return int(query)
+    if query in ("first", "one"):
+        return 1
+    return None
 
 
 @app.get("/card", response_model=list[CardResponse])
-def cards() -> list[CardResponse]:
+def cards(
+    request: Request,
+    limit: int | None = Query(default=None, description="获取卡片数量"),
+) -> list[CardResponse]:
+    target_limit = _extract_limit(request, limit)
     return [
         CardResponse(
             word=card.word,
@@ -80,7 +131,7 @@ def cards() -> list[CardResponse]:
             translation=card.translation,
             created_time=card.created_time,
         )
-        for card in notion_client.list_vocabulary_cards()
+        for card in notion_client.list_vocabulary_cards(limit=target_limit)
     ]
 
 

@@ -16,7 +16,13 @@ def create_callbacks(
     def translate_and_format(text: str) -> tuple[str, list[list[str]]]:
         result = translate_fn(text)
         words = [
-            [word.surface, word.dictionary_form, word.reading, word.definition, word.grammar_note]
+            [
+                word.surface or word.word,
+                word.dictionary_form or word.word,
+                word.reading,
+                word.definition or word.meaning,
+                word.grammar_note or word.example,
+            ]
             for word in result.words_lemmatized
         ]
         formatted = (

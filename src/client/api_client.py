@@ -7,11 +7,15 @@ from pydantic import BaseModel
 
 
 class LemmatizedWord(BaseModel):
-    surface: str
-    dictionary_form: str
+    word: str | None = None
     reading: str
-    definition: str
-    grammar_note: str
+    meaning: str | None = None
+    example: str | None = None
+    translation: str | None = None
+    surface: str | None = None
+    dictionary_form: str | None = None
+    definition: str | None = None
+    grammar_note: str | None = None
 
 
 class TranslateResponse(BaseModel):
