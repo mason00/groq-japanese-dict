@@ -172,16 +172,17 @@ class JapanesePipeline:
             reading = _to_hiragana(token.reading_form())
             glosses: list[str] = []
 
-            if pos in TARGET_PARTS_OF_SPEECH:
-                glosses = self._lookup_glosses(dictionary_form)
-                gloss_str = "; ".join(glosses) if glosses else "无"
-                lines.append(
-                    f"{current_id}. 表面: {surface} | 原型: {dictionary_form} | 读音: {reading} | 词性: {pos} | JMdict英文参考: {gloss_str}"
-                )
-            else:
-                lines.append(
-                    f"{current_id}. 表面: {surface} | 原型: {dictionary_form} | 读音: {reading} | 词性: {pos}"
-                )
+            # too slow on render, disk IO bad for jmdict
+            # if pos in TARGET_PARTS_OF_SPEECH:
+            #     glosses = self._lookup_glosses(dictionary_form)
+            #     gloss_str = "; ".join(glosses) if glosses else "无"
+            #     lines.append(
+            #         f"{current_id}. 表面: {surface} | 原型: {dictionary_form} | 读音: {reading} | 词性: {pos} | JMdict英文参考: {gloss_str}"
+            #     )
+            # else:
+            lines.append(
+                f"{current_id}. 表面: {surface} | 原型: {dictionary_form} | 读音: {reading} | 词性: {pos}"
+            )
 
             morphemes.append(
                 LocalMorpheme(

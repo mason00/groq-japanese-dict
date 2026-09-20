@@ -15,6 +15,7 @@ def _get_pipeline() -> JapanesePipeline:
     if _pipeline is None:
         with _pipeline_lock:
             if _pipeline is None:
+                print(">>> 正在初始化 JapanesePipeline (載入分詞器/模型)...")
                 _pipeline = JapanesePipeline(create_llm_client())
     return _pipeline
 
