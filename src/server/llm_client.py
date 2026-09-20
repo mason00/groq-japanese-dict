@@ -89,7 +89,7 @@ class GroqClient(LLMClient):
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
-                max_completion_tokens=int(os.getenv("LLM_MAX_COMPLETION_TOKENS", "512")),
+                max_completion_tokens=int(os.getenv("LLM_MAX_COMPLETION_TOKENS", "1024")),
                 temperature=0,
                 response_format={"type": "json_object"},
                 messages=[
