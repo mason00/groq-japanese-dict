@@ -140,9 +140,9 @@ export default function CardView() {
   return (
     <main className="workspace cards-workspace">
       {card ? (
-        <section className={`flashcard ${revealed ? "is-revealed" : ""}`}>
+        <section className={`flashcard ${revealed ? "is-revealed" : ""}`} onClick={() => setRevealed(true)}>
           <div className="card-meta"><span>词汇卡</span><span>第 {num} 张</span></div>
-          <button className="card-word" onClick={() => setRevealed(true)} aria-label="显示词汇卡详情">
+          <button className="card-word" aria-label="显示词汇卡详情">
             <span>{card.word}</span>
             {!revealed && <small>点击查看详情</small>}
           </button>
