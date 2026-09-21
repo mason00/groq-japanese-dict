@@ -119,7 +119,7 @@ def _extract_limit(request: Request, limit: int | None = None) -> int | None:
 @app.get("/card", response_model=list[CardResponse])
 def cards(
     request: Request,
-    limit: int | None = Query(default=None, description="获取卡片数量"),
+    limit: int | None = Query(default=20, description="获取卡片数量"),
     offset: int = Query(default=0, ge=0, description="跳过前面的卡片数量"),
 ) -> list[CardResponse]:
     target_limit = _extract_limit(request, limit)
