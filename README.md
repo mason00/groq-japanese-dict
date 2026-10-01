@@ -17,7 +17,9 @@ Translator and vocabulary cards are available as tabs in the Gradio interface.
 
 Configure `GROQ_API_KEY` in the Space Settings under **Secrets**.
 
-Set `NOTION_TOKEN` and `NOTION_DATABASE_ID` to enable vocabulary cards; the integration must have access to that database.
+The existing `/save_word` and `/card` endpoints continue to use Notion. Set `NOTION_TOKEN` and `NOTION_DATABASE_ID` to enable them; the integration must have access to that database.
+
+Mongo-backed equivalents are also available at `POST /mongo/save_word` and `GET /mongo/card`. Set `MONGO_URI` to enable them; they use the `japan-dict` database and `vocab` collection. Existing Notion vocabulary is not copied to MongoDB.
 
 Optional LangSmith variables can also be configured in Space Secrets.
 

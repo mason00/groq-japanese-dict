@@ -39,7 +39,7 @@ export default function CardView() {
       return windowRequests.current.get(windowStart);
     }
 
-    const requestPromise = request(`/card?offset=${windowStart}&limit=${CARD_WINDOW_SIZE}`)
+    const requestPromise = request(`/mongo/card?offset=${windowStart}&limit=${CARD_WINDOW_SIZE}`)
       .then((data) => {
         if (!Array.isArray(data)) return [];
 
@@ -97,7 +97,7 @@ export default function CardView() {
         if (!currentCard) {
           setCard(null);
           setHasNext(false);
-          setStatus({ type: "empty", message: "Notion 词汇库为空。" });
+          setStatus({ type: "empty", message: "MongoDB 词汇库为空。" });
           return;
         }
 
@@ -177,7 +177,7 @@ export default function CardView() {
         <div className={`empty-state card-empty ${status.type}`}>
           <span className="empty-mark">語</span>
           <p>{status.message}</p>
-          {status.type === "error" && <small>请确认 API 地址和 Notion 配置。</small>}
+          {status.type === "error" && <small>请确认 API 地址和 MongoDB 配置。</small>}
         </div>
       )}
     </main>

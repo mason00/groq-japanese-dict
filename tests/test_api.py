@@ -4,10 +4,38 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from src.server.api import app
+from src.server.mongo_client import VocabularyCard as MongoVocabularyCard
 from src.server.notion_client import VocabularyCard
 
 
 class ApiTests(unittest.TestCase):
+    def test_mongo_card_returns_vocabulary_cards(self) -> None:
+        cards = [MongoVocabularyCard("飲む", "のむ", "喝", "水を飲む。", "I drink.", "2026-02-01")]
+        with patch("src.server.api.mongo_client.list_vocabulary_cards", return_value=cards) as list_mock:
+            response = TestClient(app).get("/mongo/card?limit=1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]["word"], "飲む")
+        list_mock.assert_called_once_with(limit=1)
+
+    def test_mongo_save_word_uses_mongo_client(self) -> None:
+        with patch(
+            "src.server.api.mongo_client.save_word",
+            return_value=MagicMock(status="added", message=""),
+        ) as save_mock:
+            response = TestClient(app).post("/mongo/save_word", json={
+                "surface": "飲んだ",
+                "dictionary_form": "飲む",
+                "reading": "のむ",
+                "definition": "喝",
+                "grammar_note": "水を飲む。",
+                "translation": "I drink.",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "added")
+        self.assertEqual(save_mock.call_args.args[0].dictionary_form, "飲む")
+
     def test_card_returns_vocabulary_cards(self) -> None:
         cards = [VocabularyCard("飲む", "のむ", "喝", "水を飲む。", "I drink.", "2026-02-01")]
         with patch("src.server.api.notion_client.list_vocabulary_cards", return_value=cards) as list_mock:

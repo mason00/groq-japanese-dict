@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from .anki_export import AnkiWord
 
+from .mongo_client import MongoVocabularyClient
 from .notion_client import NotionClient
 from .pipeline import LemmatizedWord
 from .service import translate_text
@@ -40,6 +41,7 @@ app = FastAPI(
     description="使用统一 LLM 客户端生成带振假名日语和中文翻译。",
 )
 notion_client = NotionClient()
+mongo_client = MongoVocabularyClient()
 frontend_origins = [
     origin.strip()
     for origin in os.getenv("FRONTEND_ORIGINS", "*").split(",")
@@ -93,6 +95,19 @@ def save_word(request: SaveWordRequest) -> SaveWordResponse:
     result = notion_client.save_word(anki_word)
     return SaveWordResponse(status=result.status, message=result.message)
 
+@app.post("/mongo/save_word", response_model=SaveWordResponse)
+def mongo_save_word(request: SaveWordRequest) -> SaveWordResponse:
+    anki_word = AnkiWord(
+        surface=request.surface,
+        dictionary_form=request.dictionary_form,
+        reading=request.reading,
+        definition=request.definition,
+        grammar_note=request.grammar_note,
+        translation=request.translation,
+    )
+    result = mongo_client.save_word(anki_word)
+    return SaveWordResponse(status=result.status, message=result.message)
+
 
 def _extract_limit(request: Request, limit: int | None = None) -> int | None:
     if limit is not None:
@@ -127,6 +142,29 @@ def cards(
         cards = notion_client.list_vocabulary_cards(limit=target_limit, offset=offset)
     else:
         cards = notion_client.list_vocabulary_cards(limit=target_limit)
+    return [
+        CardResponse(
+            word=card.word,
+            reading=card.reading,
+            meaning=card.meaning,
+            example=card.example,
+            translation=card.translation,
+            created_time=card.created_time,
+        )
+        for card in cards
+    ]
+
+@app.get("/mongo/card", response_model=list[CardResponse])
+def mongo_cards(
+    request: Request,
+    limit: int | None = Query(default=20, description="获取卡片数量"),
+    offset: int = Query(default=0, ge=0, description="跳过前面的卡片数量"),
+) -> list[CardResponse]:
+    target_limit = _extract_limit(request, limit)
+    if offset:
+        cards = mongo_client.list_vocabulary_cards(limit=target_limit, offset=offset)
+    else:
+        cards = mongo_client.list_vocabulary_cards(limit=target_limit)
     return [
         CardResponse(
             word=card.word,

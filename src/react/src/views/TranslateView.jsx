@@ -75,7 +75,7 @@ export default function TranslateView() {
     const key = `${word.surface}-${idx}`;
     setSelectedWordKeys((prev) => ({ ...prev, [key]: true }));
     try {
-      const response = await request("/save_word", {
+      const response = await request("/mongo/save_word", {
         method: "POST",
         body: JSON.stringify({
           surface: word.surface,
