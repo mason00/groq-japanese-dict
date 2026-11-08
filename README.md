@@ -21,6 +21,8 @@ The existing `/save_word` and `/card` endpoints continue to use Notion. Set `NOT
 
 Mongo-backed equivalents are also available at `POST /mongo/save_word` and `GET /mongo/card`. Set `MONGO_URI` to enable them; they use the `japan-dict` database and `vocab` collection. Existing Notion vocabulary is not copied to MongoDB.
 
+Opening `/card?65` in a browser serves the vocabulary-card interface at card 65. API clients requesting JSON from `/card` continue to receive Notion vocabulary data.
+
 Optional LangSmith variables can also be configured in Space Secrets.
 
 [render: https://groq-japanese-dict.onrender.com/](https://groq-japanese-dict.onrender.com/)

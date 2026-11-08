@@ -52,6 +52,13 @@ class ApiTests(unittest.TestCase):
         }])
         list_mock.assert_called_once_with(limit=None)
 
+    def test_card_navigation_serves_frontend(self) -> None:
+        response = TestClient(app).get("/card?65", headers={"accept": "text/html"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn('<div id="root"></div>', response.text)
+
     def test_card_supports_bare_number_query_param(self) -> None:
         cards = [VocabularyCard("飲む", "のむ", "喝", "水を飲む。", "I drink.", "2026-02-01")]
         with patch("src.server.api.notion_client.list_vocabulary_cards", return_value=cards) as list_mock:

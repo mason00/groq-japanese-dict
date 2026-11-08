@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from .anki_export import AnkiWord
@@ -131,12 +132,19 @@ def _extract_limit(request: Request, limit: int | None = None) -> int | None:
     return None
 
 
-@app.get("/card", response_model=list[CardResponse])
+@app.get(
+    "/card",
+    response_model=list[CardResponse],
+    responses={200: {"content": {"text/html": {}}}},
+)
 def cards(
     request: Request,
-    limit: int | None = Query(default=20, description="获取卡片数量"),
+    limit: int | None = Query(default=None, description="获取卡片数量"),
     offset: int = Query(default=0, ge=0, description="跳过前面的卡片数量"),
-) -> list[CardResponse]:
+) -> list[CardResponse] | FileResponse:
+    if "text/html" in request.headers.get("accept", "").lower():
+        return FileResponse(frontend_path / "index.html")
+
     target_limit = _extract_limit(request, limit)
     if offset:
         cards = notion_client.list_vocabulary_cards(limit=target_limit, offset=offset)
